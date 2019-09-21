@@ -18,10 +18,10 @@ class Function:
     def __eq__(self, other):
         if isinstance(other, Function):
             return self.name == other.name and \
-                self.docstring == other.docstring and \
-                self.arg_names == other.arg_names and \
-                self.arg_types == other.arg_types and \
-                self.return_type == other.return_type
+                   self.docstring == other.docstring and \
+                   self.arg_names == other.arg_names and \
+                   self.arg_types == other.arg_types and \
+                   self.return_type == other.return_type
 
         return False
 
@@ -29,6 +29,9 @@ class Function:
         values = list(map(lambda x: repr(x), self.__dict__.values()))
         values = ",".join(values)
         return "Function(%s)" % values
+
+    def has_types(self):
+        return any(ty for ty in self.arg_types) or self.return_type
 
 
 class Extractor:
@@ -85,7 +88,10 @@ class Extractor:
 
     def extract(self, program: str):
         """Extract useful data from python program"""
-        main_node: ast.AST = ast.parse(program)
+        try:
+            main_node: ast.AST = ast.parse(program)
+        except Exception:
+            raise ParseError()
 
         fns: List[Function] = []
 
@@ -101,3 +107,7 @@ class Extractor:
                 fns.append(f)
 
         return fns
+
+
+class ParseError(Exception):
+    pass

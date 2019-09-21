@@ -1,1 +1,2 @@
 astor==0.8.0
+gitpython

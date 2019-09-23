@@ -62,3 +62,61 @@ class Test:
             sum += x
         print(msg)
         return sum + self.x
+
+    def google_docstring(self, param1: int, param2: str) -> bool:
+        """Summary line.
+
+        Extended description of function.
+
+        Args:
+            param1 (int): The first parameter.
+            param2 (str): The second parameter.
+
+        Returns:
+            bool: Description of return value"""
+        if len(param2) == param1:
+            return True
+        else:
+            return False
+
+    def rest_docstring(self, param1: int, param2: str) -> bool:
+        """
+        Summary line.
+
+        Description of function.
+
+        :param int param1:  The first parameter.
+        :param str param2: The second parameter.
+        :type param1: int
+        :return: Description of return value
+        :rtype: bool
+        """
+        if len(param2) == param1:
+            return True
+        else:
+            return False
+
+    def numpy_docstring(self, param1: int, param2: str) -> bool:
+        """
+         Summary line.
+
+        Extended description of function.
+
+        Parameters
+        ----------
+        param1 : int
+            The first parameter.
+        param2 : str
+            The second parameter.
+
+        Returns
+        -------
+        bool
+            Description of return value"""
+        if len(param2) == param1:
+            return True
+        else:
+            return False
+
+
+

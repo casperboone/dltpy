@@ -139,11 +139,13 @@ class Extractor():
         dash_line_matcher = re.compile("\s*--+")
         param_keywords = ["Parameters", "Params", "Arguments", "Args"]
         return_keywords = ["Returns", "Return"]
+        break_keywords = ["See Also", "Examples"]
 
         convert_docstring: bool = False
         add_indent: bool = False
         add_double_colon: bool = False
         active_keyword: bool = False
+        end_docstring: bool = False
 
         preparsed_docstring: str = ""
         lines: List[str] = docstring.split("\n")
@@ -158,12 +160,20 @@ class Extractor():
                         add_indent = True
                         active_keyword = True
                         break
-                for keyword in return_keywords:
-                    if keyword in line:
-                        add_indent = True
-                        add_double_colon = True
-                        active_keyword = True
-                        break
+                if not active_keyword:
+                    for keyword in return_keywords:
+                        if keyword in line:
+                            add_indent = True
+                            add_double_colon = True
+                            active_keyword = True
+                            break
+                if not add_double_colon:
+                    for keyword in break_keywords:
+                        if keyword in line:
+                            end_docstring = True
+                            break
+                if end_docstring:
+                    break
                 if active_keyword:
                     preparsed_docstring += line + "\n"
                     active_keyword = False

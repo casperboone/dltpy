@@ -112,7 +112,19 @@ class Test:
         Returns
         -------
         bool
-            Description of return value"""
+            Description of return value
+
+        See Also
+        --------
+        google_docstring : Same function but other docstring.
+
+        Examples
+        --------
+        numpy_docstring(5, "hello")
+            this will return true
+        """
+
+
         if len(param2) == param1:
             return True
         else:

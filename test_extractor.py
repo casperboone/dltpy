@@ -22,22 +22,19 @@ class TestExtractor(unittest.TestCase):
         "untyped_varargs" :  Function('untyped_varargs','This function has untype varargs',['self', 'msg', 'xs'],['', 'str', ''],'int',['return sum + self.x'], "This function has untype varargs", {}, None),
         "google_docstring": Function('google_docstring','Summary line.\n\nExtended description of function.\n\nArgs:\n    param1 (int): The first parameter.\n    param2 (str): The second parameter.\n\nReturns:\n    bool: Description of return value',['self', 'param1', 'param2'],['', 'int', 'str'],'bool',['return True', 'return False'],'Summary line.',{'param1': 'The first parameter.', 'param2': 'The second parameter.'},'Description of return value'),
         "rest_docstring": Function('rest_docstring','Summary line.\n\nDescription of function.\n\n:param int param1:  The first parameter.\n:param str param2: The second parameter.\n:type param1: int\n:return: Description of return value\n:rtype: bool',['self', 'param1', 'param2'],['', 'int', 'str'],'bool',['return True', 'return False'],'Summary line.',{'param1': 'The first parameter.', 'param2': 'The second parameter.'},'Description of return value'),
-        "numpy_docstring": Function('numpy_docstring',' Summary line.\n\nExtended description of function.\n\nParameters\n----------\nparam1 : int\n    The first parameter.\nparam2 : str\n    The second parameter.\n\nReturns\n-------\nbool\n    Description of return value',['self', 'param1', 'param2'],['', 'int', 'str'],'bool',['return True', 'return False'],'Summary line.',{'param1': 'The first parameter.', 'param2': 'The second parameter.\n        '},'Description of return value'),
+        "numpy_docstring": Function('numpy_docstring',' Summary line.\n\nExtended description of function.\n\nParameters\n----------\nparam1 : int\n    The first parameter.\nparam2 : str\n    The second parameter.\n\nReturns\n-------\nbool\n    Description of return value\n\nSee Also\n--------\ngoogle_docstring : Same function but other docstring.\n\nExamples\n--------\nnumpy_docstring(5, "hello")\n    this will return true',['self', 'param1', 'param2'],['', 'int', 'str'],'bool',['return True', 'return False'],'Summary line.',{'param1': 'The first parameter.', 'param2': 'The second parameter.\n        '},'Description of return value')
     }
-
 
     def setUp(self):
         with open("./resources/example.py") as file:
             program = file.read()
         self.fns = Extractor().extract(program)
 
-
     def test_function_parsing(self):
         for fn in self.expected.keys():
             actual = [x for x in self.fns if x.name == fn][0]
             expected = self.expected[fn]
             self.assertEqual(expected, actual)
-
 
 
 if __name__ == '__main__':

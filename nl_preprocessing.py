@@ -1,5 +1,7 @@
 from __future__ import unicode_literals
 from functools import reduce
+from typing import Any
+
 from extractor import Function
 import re
 import nltk
@@ -24,10 +26,22 @@ class CleanFunction:
         self.clean_return_type = clean_return_type
         self.clean_return_expr = clean_return_expr
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         values = list(map(lambda x: repr(x), self.__dict__.values()))
         values = "\n\t" + ",\n\t".join(values) + "\n"
         return "CleanFunction(%s)" % values
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, CleanFunction):
+            return self.original_function == other.original_function and \
+                   self.clean_name == other.clean_name and \
+                   self.clean_docstring == other.clean_docstring and \
+                   self.clean_arg_names == other.clean_arg_names and \
+                   self.clean_arg_types == other.clean_arg_types and \
+                   self.clean_return_type == other.clean_return_type and \
+                   self.clean_return_expr == other.clean_return_expr
+
+        return False
 
 
 class NLPreprocessor:

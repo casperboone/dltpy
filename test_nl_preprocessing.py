@@ -16,7 +16,7 @@ class TestExtractor(unittest.TestCase):
 
         result = NLPreprocessor().preprocess(function)
 
-        self.assertEqual(repr(CleanFunction(
+        self.assertEqual(CleanFunction(
             function,
             'add two number',
             'function add number',
@@ -24,7 +24,7 @@ class TestExtractor(unittest.TestCase):
             ['', 'SpecialNumberType', 'int'],
             'int',
             ['first number second number']
-        )), repr(result))
+        ), result)
 
     def test_preprocessing_a_function_with_camel_case_name(self):
         function = Function(
@@ -38,7 +38,7 @@ class TestExtractor(unittest.TestCase):
 
         result = NLPreprocessor().preprocess(function)
 
-        self.assertEqual(repr(CleanFunction(
+        self.assertEqual(CleanFunction(
             function,
             'add two number',
             'function add number',
@@ -46,7 +46,7 @@ class TestExtractor(unittest.TestCase):
             ['', 'SpecialNumberType', 'int'],
             'int',
             ['first number second number']
-        )), repr(result))
+        ), result)
 
     def test_preprocessing_a_function_without_arguments_and_return_statement(self):
         function = Function(
@@ -60,7 +60,7 @@ class TestExtractor(unittest.TestCase):
 
         result = NLPreprocessor().preprocess(function)
 
-        self.assertEqual(repr(CleanFunction(
+        self.assertEqual(CleanFunction(
             function,
             'add two number',
             'function add number',
@@ -68,7 +68,7 @@ class TestExtractor(unittest.TestCase):
             [],
             'None',
             []
-        )), repr(result))
+        ), result)
 
     def test_preprocessing_a_function_with_a_lot_of_punctuation_and_text(self):
         function = Function(
@@ -87,7 +87,7 @@ class TestExtractor(unittest.TestCase):
 
         result = NLPreprocessor().preprocess(function)
 
-        self.assertEqual(repr(CleanFunction(
+        self.assertEqual(CleanFunction(
             function,
             'validate clip with axis',
             'nd frame clip call via numpy library third parameter signature . take ndarray check axis parameter '
@@ -96,7 +96,7 @@ class TestExtractor(unittest.TestCase):
             ['ndarray', 'list', 'list'],
             'ndarray',
             ['axis']
-        )), repr(result))
+        ), result)
 
 
 if __name__ == '__main__':

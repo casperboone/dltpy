@@ -1,3 +1,4 @@
 astor==0.8.0
+pandas>=0.25.1
 gitpython
 docstring-parser==0.3

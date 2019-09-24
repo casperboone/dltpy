@@ -3,12 +3,14 @@ import json
 import os
 import shutil
 import time
-from pprint import pprint
 import traceback
+from pprint import pprint
+
+import pandas as pd
 
 from cloner import Cloner
-from project_filter import ProjectFilter
 from extractor import Extractor, ParseError
+from project_filter import ProjectFilter
 
 cloner = Cloner()
 project_filter = ProjectFilter()
@@ -47,29 +49,28 @@ def write_project_output(projects: list) -> None:
     Write a list of all found functions and a list of all found functions with types to the output directory
     """
     functions = []
-    functions_with_types = []
+    columns = None
 
     for project in projects:
         if 'files' in project:
             for file in project['files']:
                 for function in file['functions']:
-                    function_metadata = {
-                        'author': project['author'],
-                        'repo': project['repo'],
-                        'filename': file['filename'],
-                        'signature': function
-                    }
+                    if columns is None:
+                        columns = ['author', 'repo', 'file', 'has_type'] + list(function.tuple_keys())
+
+                    function_metadata = (
+                                            project['author'],
+                                            project['repo'],
+                                            file['filename'],
+                                            function.has_types()
+                                        ) + function.as_tuple()
                     functions.append(function_metadata)
-                    if function.has_types():
-                        functions_with_types.append(function_metadata)
 
-    with open(os.path.join(output_directory, 'functions.json'), 'w') as file:
-        json.dump(functions, file, default=lambda o: o.__dict__, indent=4)
-        file.close()
+                    assert len(function_metadata) == len(columns), f"Assertion failed size of columns should be same " \
+                                                                   f"as the size of the data tuple."
 
-    with open(os.path.join(output_directory, 'functions_with_types.json'), 'w') as file:
-        json.dump(functions_with_types, file, default=lambda o: o.__dict__, indent=4)
-        file.close()
+    function_df = pd.DataFrame(functions, columns=columns)
+    function_df.to_csv(os.path.join(output_directory, "functions.csv"))
 
 
 def write_statistics(statistics: dict) -> None:

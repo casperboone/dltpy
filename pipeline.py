@@ -10,11 +10,13 @@ import pandas as pd
 
 from cloner import Cloner
 from extractor import Extractor, ParseError
+from nl_preprocessing import NLPreprocessor
 from project_filter import ProjectFilter
 
 cloner = Cloner()
 project_filter = ProjectFilter()
 extractor = Extractor()
+preprocessor = NLPreprocessor()
 
 # Create output directory
 if not os.path.isdir('./output'):
@@ -107,16 +109,17 @@ def run_pipeline(projects: list) -> None:
             print('Filtering...')
             filtered_project_directory = project_filter.filter_directory(cloned_project_directory)
 
-            print('Extracting...')
+            print('Extracting and preprocessing...')
             for filename in list_files(filtered_project_directory):
                 statistics['files'] += 1
                 try:
                     functions = extractor.extract(read_file(filename))
                     statistics['functions'] += len(functions)
                     statistics['functions_with_types'] += sum(1 for function in functions if function.has_types())
+                    preprocessed_functions = [preprocessor.preprocess(function) for function in functions]
                     project['files'].append({
                         'filename': filename,
-                        'functions': functions
+                        'functions': preprocessed_functions
                     })
                 except ParseError:
                     statistics['unparsable_files'] += 1

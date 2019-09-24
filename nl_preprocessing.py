@@ -14,9 +14,9 @@ all_cap_regex = re.compile('([a-z0-9])([A-Z])')
 
 
 class CleanFunction:
-    def __init__(self, function: Function, clean_name: str, clean_docstring: str, clean_arg_names: list,
+    def __init__(self, original_function: Function, clean_name: str, clean_docstring: str, clean_arg_names: list,
                  clean_arg_types: list, clean_return_type: str, clean_return_expr: list):
-        self.function = function
+        self.original_function = original_function
         self.clean_name = clean_name
         self.clean_docstring = clean_docstring
         self.clean_arg_names = clean_arg_names

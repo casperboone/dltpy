@@ -3,7 +3,7 @@ from extractor import Function
 from nl_preprocessing import NLPreprocessor, CleanFunction
 
 
-class TestExtractor(unittest.TestxCase):
+class TestExtractor(unittest.TestCase):
     def test_preprocessing_a_function(self):
         function = Function(
             'add_two_numbers',

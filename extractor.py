@@ -10,16 +10,16 @@ class Function:
     Representation of a parsed python function
     """
 
-    def __init__(self, name, docstring, arg_names, arg_types,
-                 return_type, return_expr, func_descr, arg_descrs, return_descr):
+    def __init__(self, name, docstring, func_descr, arg_names, arg_types,
+                 arg_descrs, return_type, return_expr, return_descr):
         self.name = name
         self.docstring = docstring
+        self.func_descr = func_descr
         self.arg_names = arg_names
         self.arg_types = arg_types
+        self.arg_descrs = arg_descrs
         self.return_type = return_type
         self.return_expr = return_expr
-        self.func_descr = func_descr
-        self.arg_descrs = arg_descrs
         self.return_descr = return_descr
 
     def __eq__(self, other):
@@ -103,11 +103,9 @@ class Extractor():
 
         docstring_descr = self.extract_docstring_descriptions(self.check_docstring(docstring))
 
-        f: Function = Function(function_name, docstring,
-                               arg_names, arg_types, return_type, exprs,
-                               docstring_descr["function_descr"],
-                               docstring_descr["params"],
-                               docstring_descr["return_descr"])
+        f: Function = Function(function_name, docstring, docstring_descr["function_descr"],
+                               arg_names, arg_types, docstring_descr["params"],
+                               return_type, exprs, docstring_descr["return_descr"])
         return f
 
     def extract_name(self, node: ast_fn_def) -> str:

@@ -1,6 +1,8 @@
-from typing import Tuple, Type, Union, List, Optional, Any
+from typing import Tuple, Type, Union, List, Optional, Any, Dict, Collection
 from astor import code_gen
 import ast
+import re
+import docstring_parser
 
 
 class Function:
@@ -8,14 +10,17 @@ class Function:
     Representation of a parsed python function
     """
 
-    def __init__(self, name, docstring, arg_names, arg_types,
-                 return_type, return_expr):
+    def __init__(self, name, docstring, func_descr, arg_names, arg_types,
+                 arg_descrs, return_type, return_expr, return_descr):
         self.name = name
         self.docstring = docstring
+        self.func_descr = func_descr
         self.arg_names = arg_names
         self.arg_types = arg_types
+        self.arg_descrs = arg_descrs
         self.return_type = return_type
         self.return_expr = return_expr
+        self.return_descr = return_descr
 
     def __eq__(self, other):
         if isinstance(other, Function):
@@ -24,7 +29,10 @@ class Function:
                    self.arg_names == other.arg_names and \
                    self.arg_types == other.arg_types and \
                    self.return_type == other.return_type and \
-                   self.return_expr == other.return_expr
+                   self.return_expr == other.return_expr and \
+                   self.func_descr == other.func_descr and \
+                   self.arg_descrs == other.arg_descrs and \
+                   self.return_descr == other.return_descr
 
         return False
 
@@ -92,8 +100,12 @@ class Extractor():
         (arg_names, arg_types) = self.extract_args(node)
         return_type: str = self.extract_return_type(node)
         exprs: List[str] = [self.pretty_print(re) for re in return_exprs]
-        f: Function = Function(function_name, docstring,
-                               arg_names, arg_types, return_type, exprs)
+
+        docstring_descr = self.extract_docstring_descriptions(self.check_docstring(docstring))
+
+        f: Function = Function(function_name, docstring, docstring_descr["function_descr"],
+                               arg_names, arg_types, docstring_descr["params"],
+                               return_type, exprs, docstring_descr["return_descr"])
         return f
 
     def extract_name(self, node: ast_fn_def) -> str:
@@ -103,6 +115,82 @@ class Extractor():
     def extract_docstring(self, node: ast_fn_def) -> str:
         """Extract the docstring from a function"""
         return ast.get_docstring(node) or ""
+
+    def extract_docstring_descriptions(self, docstring: str) -> Dict[str, Optional[Collection[str]]]:
+        """Extract the return description from the docstring"""
+        parsed_docstring = docstring_parser.parse(docstring)
+
+        descr_map = {"function_descr": parsed_docstring.short_description,
+                     "params": {},
+                     "return_descr": None}
+
+        if parsed_docstring.returns is not None:
+            descr_map["return_descr"] = parsed_docstring.returns.description
+
+        for param in parsed_docstring.params:
+            descr_map["params"][param.arg_name] = param.description
+
+        return descr_map
+
+    def check_docstring(self, docstring: str) -> str:
+        """Check the docstring if it has a valid structure for parsing and returns a valid docstring."""
+        dash_line_matcher = re.compile("\s*--+")
+        param_keywords = ["Parameters", "Params", "Arguments", "Args"]
+        return_keywords = ["Returns", "Return"]
+        break_keywords = ["See Also", "Examples"]
+
+        convert_docstring: bool = False
+        add_indent: bool = False
+        add_double_colon: bool = False
+        active_keyword: bool = False
+        end_docstring: bool = False
+
+        preparsed_docstring: str = ""
+        lines: List[str] = docstring.split("\n")
+        for line in lines:
+            result = re.match(dash_line_matcher, line)
+            if result is not None:
+                preparsed_docstring = preparsed_docstring[:-1] + ":" + "\n"
+                convert_docstring = True
+            else:
+                for keyword in param_keywords:
+                    if keyword in line:
+                        add_indent = True
+                        active_keyword = True
+                        break
+                if not active_keyword:
+                    for keyword in return_keywords:
+                        if keyword in line:
+                            add_indent = True
+                            add_double_colon = True
+                            active_keyword = True
+                            break
+                if not add_double_colon:
+                    for keyword in break_keywords:
+                        if keyword in line:
+                            end_docstring = True
+                            break
+                if end_docstring:
+                    break
+                if active_keyword:
+                    preparsed_docstring += line + "\n"
+                    active_keyword = False
+                elif add_double_colon:
+                    preparsed_docstring += "\t" + line + ":\n"
+                    add_double_colon = False
+                elif add_indent:
+                    line_parts = line.split(":")
+                    if len(line_parts) > 1:
+                        preparsed_docstring += "\t" + line_parts[0] + "(" + line_parts[1].replace(" ", "") + "):\n"
+                    else:
+                        preparsed_docstring += "\t" + line + "\n"
+                else:
+                    preparsed_docstring += line + "\n"
+
+        if convert_docstring:
+            return preparsed_docstring
+        else:
+            return docstring
 
     def pretty_print(self, node: Optional[ast.AST]) -> str:
         """

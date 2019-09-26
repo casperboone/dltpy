@@ -3,7 +3,6 @@ import json
 import os
 import shutil
 import time
-from pprint import pprint
 import traceback
 from pprint import pprint
 
@@ -69,8 +68,8 @@ def write_project_output(projects: list) -> None:
                                         ) + function.as_tuple()
                     functions.append(function_metadata)
 
-                    assert len(function_metadata) == len(columns), f"Assertion failed size of columns should be same " \
-                                                                   f"as the size of the data tuple."
+                    assert len(function_metadata) == len(columns), \
+                        f"Assertion failed size of columns should be same as the size of the data tuple."
 
     function_df = pd.DataFrame(functions, columns=columns)
     function_df.to_csv(os.path.join(output_directory, "functions.csv"))

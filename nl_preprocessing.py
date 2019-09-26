@@ -22,16 +22,22 @@ class NLPreprocessor:
         return Function(
             name=self.process_identifier(function.name),
             docstring=self.process_sentence(function.docstring),
+            func_descr=self.process_sentence(function.func_descr),
             arg_names=[self.process_identifier(arg_name) for arg_name in function.arg_names],
             arg_types=function.arg_types,
+            arg_descrs={arg_name: self.process_sentence(descr) for arg_name, descr in function.arg_descrs.items()},
             return_type=function.return_type,
-            return_expr=[self.process_identifier(expr.replace('return ', '')) for expr in function.return_expr]
+            return_expr=[self.process_identifier(expr.replace('return ', '')) for expr in function.return_expr],
+            return_descr=self.process_sentence(function.return_descr)
         )
 
     def process_sentence(self, sentence: str) -> str:
         """
         Process a natural language sentence
         """
+        if sentence is None:
+            return None
+
         pipeline = [
             SentenceProcessor.replace_digits_with_space,
             SentenceProcessor.remove_punctuation_and_linebreaks,

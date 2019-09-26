@@ -41,8 +41,8 @@ class Function:
         values = ",".join(values)
         return "Function(%s)" % values
 
-    def has_types(self):
-        return any(ty for ty in self.arg_types) or self.return_type
+    def has_types(self) -> bool:
+        return any(ty for ty in self.arg_types) or self.return_type != ''
 
     def as_tuple(self) -> Tuple:
         return tuple(self.__dict__.values())

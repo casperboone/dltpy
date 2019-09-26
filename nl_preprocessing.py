@@ -1,6 +1,5 @@
 from __future__ import unicode_literals
 from functools import reduce
-from typing import Any
 
 from extractor import Function
 import re
@@ -15,48 +14,18 @@ first_cap_regex = re.compile('(.)([A-Z][a-z]+)')
 all_cap_regex = re.compile('([a-z0-9])([A-Z])')
 
 
-class CleanFunction:
-    def __init__(self, original_function: Function, clean_name: str, clean_docstring: str, clean_arg_names: list,
-                 clean_arg_types: list, clean_return_type: str, clean_return_expr: list):
-        self.original_function = original_function
-        self.clean_name = clean_name
-        self.clean_docstring = clean_docstring
-        self.clean_arg_names = clean_arg_names
-        self.clean_arg_types = clean_arg_types
-        self.clean_return_type = clean_return_type
-        self.clean_return_expr = clean_return_expr
-
-    def __repr__(self) -> str:
-        values = list(map(lambda x: repr(x), self.__dict__.values()))
-        values = "\n\t" + ",\n\t".join(values) + "\n"
-        return "CleanFunction(%s)" % values
-
-    def __eq__(self, other: Any) -> bool:
-        if isinstance(other, CleanFunction):
-            return self.original_function == other.original_function and \
-                   self.clean_name == other.clean_name and \
-                   self.clean_docstring == other.clean_docstring and \
-                   self.clean_arg_names == other.clean_arg_names and \
-                   self.clean_arg_types == other.clean_arg_types and \
-                   self.clean_return_type == other.clean_return_type and \
-                   self.clean_return_expr == other.clean_return_expr
-
-        return False
-
-
 class NLPreprocessor:
-    def preprocess(self, function: Function) -> CleanFunction:
+    def preprocess(self, function: Function) -> Function:
         """
         Preprocess a function's comments and identifiers by removing punctuating, removing stopwords and lemmatization
         """
-        return CleanFunction(
-            function,
-            clean_name=self.process_identifier(function.name),
-            clean_docstring=self.process_sentence(function.docstring),
-            clean_arg_names=[self.process_identifier(arg_name) for arg_name in function.arg_names],
-            clean_arg_types=function.arg_types,
-            clean_return_type=function.return_type,
-            clean_return_expr=[self.process_identifier(expr.replace('return ', '')) for expr in function.return_expr]
+        return Function(
+            name=self.process_identifier(function.name),
+            docstring=self.process_sentence(function.docstring),
+            arg_names=[self.process_identifier(arg_name) for arg_name in function.arg_names],
+            arg_types=function.arg_types,
+            return_type=function.return_type,
+            return_expr=[self.process_identifier(expr.replace('return ', '')) for expr in function.return_expr]
         )
 
     def process_sentence(self, sentence: str) -> str:

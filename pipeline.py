@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import time
+from pprint import pprint
 import traceback
 from pprint import pprint
 
@@ -109,20 +110,25 @@ def run_pipeline(projects: list) -> None:
             print('Filtering...')
             filtered_project_directory = project_filter.filter_directory(cloned_project_directory)
 
-            print('Extracting and preprocessing...')
+            print('Extracting...')
+            extracted_functions = {}
             for filename in list_files(filtered_project_directory):
                 statistics['files'] += 1
                 try:
                     functions = extractor.extract(read_file(filename))
                     statistics['functions'] += len(functions)
-                    statistics['functions_with_types'] += sum(1 for function in functions if function.has_types())
-                    preprocessed_functions = [preprocessor.preprocess(function) for function in functions]
-                    project['files'].append({
-                        'filename': filename,
-                        'functions': preprocessed_functions
-                    })
+                    statistics['functions_with_types'] += sum(function.has_types() for function in functions)
+                    extracted_functions[filename] = functions
                 except ParseError:
                     statistics['unparsable_files'] += 1
+
+            print('Preprocessing...')
+            preprocessed_functions = {}
+            for filename, functions in extracted_functions.items():
+                preprocessed_functions[filename] = [preprocessor.preprocess(function) for function in functions]
+
+            project['files'] = [{'filename': filename, 'functions': functions}
+                                for filename, functions in preprocessed_functions.items()]
 
             print('Remove project files...')
             shutil.rmtree(cloned_project_directory)

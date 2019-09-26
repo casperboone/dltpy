@@ -25,7 +25,7 @@ class NLPreprocessor:
             func_descr=self.process_sentence(function.func_descr),
             arg_names=[self.process_identifier(arg_name) for arg_name in function.arg_names],
             arg_types=function.arg_types,
-            arg_descrs={arg_name: self.process_sentence(descr) for arg_name, descr in function.arg_descrs.items()},
+            arg_descrs=[self.process_identifier(arg_descr) for arg_descr in function.arg_descrs],
             return_type=function.return_type,
             return_expr=[self.process_identifier(expr.replace('return ', '')) for expr in function.return_expr],
             return_descr=self.process_sentence(function.return_descr)

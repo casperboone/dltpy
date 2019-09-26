@@ -108,9 +108,13 @@ class Extractor():
         exprs: List[str] = [self.pretty_print(re) for re in return_exprs]
 
         docstring_descr = self.extract_docstring_descriptions(self.check_docstring(docstring))
+        arg_descrs = list(map(
+            lambda arg_name: docstring_descr["params"][arg_name] if arg_name in docstring_descr['params'] else '',
+            arg_names
+        ))
 
         f: Function = Function(function_name, docstring, docstring_descr["function_descr"],
-                               arg_names, arg_types, docstring_descr["params"],
+                               arg_names, arg_types, arg_descrs,
                                return_type, exprs, docstring_descr["return_descr"])
         return f
 

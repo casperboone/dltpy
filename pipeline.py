@@ -151,7 +151,8 @@ parser.add_argument('--projects_file',
                     default='./resources/mypy-dependents-by-stars.json')
 parser.add_argument('--limit',
                     help='limit the number of projects for which the pipeline should run',
-                    type=int)
+                    type=int,
+                    default=0)
 args = parser.parse_args()
 
 # Open projects file and run pipeline

@@ -41,8 +41,8 @@ class Function:
         values = ",".join(values)
         return "Function(%s)" % values
 
-    def has_types(self):
-        return any(ty for ty in self.arg_types) or self.return_type
+    def has_types(self) -> bool:
+        return any(ty for ty in self.arg_types) or self.return_type != ''
 
     def as_tuple(self) -> Tuple:
         return tuple(self.__dict__.values())
@@ -108,9 +108,13 @@ class Extractor():
         exprs: List[str] = [self.pretty_print(re) for re in return_exprs]
 
         docstring_descr = self.extract_docstring_descriptions(self.check_docstring(docstring))
+        arg_descrs = list(map(
+            lambda arg_name: docstring_descr["params"][arg_name] if arg_name in docstring_descr['params'] else '',
+            arg_names
+        ))
 
         f: Function = Function(function_name, docstring, docstring_descr["function_descr"],
-                               arg_names, arg_types, docstring_descr["params"],
+                               arg_names, arg_types, arg_descrs,
                                return_type, exprs, docstring_descr["return_descr"])
         return f
 
@@ -124,7 +128,10 @@ class Extractor():
 
     def extract_docstring_descriptions(self, docstring: str) -> Dict[str, Optional[Collection[str]]]:
         """Extract the return description from the docstring"""
-        parsed_docstring = docstring_parser.parse(docstring)
+        try:
+            parsed_docstring = docstring_parser.parse(docstring)
+        except Exception:
+            return {"function_descr": None, "params": {}, "return_descr": None}
 
         descr_map = {"function_descr": parsed_docstring.short_description,
                      "params": {},

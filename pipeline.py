@@ -10,11 +10,13 @@ import pandas as pd
 
 from cloner import Cloner
 from extractor import Extractor, ParseError
+from nl_preprocessing import NLPreprocessor
 from project_filter import ProjectFilter
 
 cloner = Cloner()
 project_filter = ProjectFilter()
 extractor = Extractor()
+preprocessor = NLPreprocessor()
 
 # Create output directory
 if not os.path.isdir('./output'):
@@ -66,8 +68,8 @@ def write_project_output(projects: list) -> None:
                                         ) + function.as_tuple()
                     functions.append(function_metadata)
 
-                    assert len(function_metadata) == len(columns), f"Assertion failed size of columns should be same " \
-                                                                   f"as the size of the data tuple."
+                    assert len(function_metadata) == len(columns), \
+                        f"Assertion failed size of columns should be same as the size of the data tuple."
 
     function_df = pd.DataFrame(functions, columns=columns)
     function_df.to_csv(os.path.join(output_directory, "functions.csv"))
@@ -108,18 +110,24 @@ def run_pipeline(projects: list) -> None:
             filtered_project_directory = project_filter.filter_directory(cloned_project_directory)
 
             print('Extracting...')
+            extracted_functions = {}
             for filename in list_files(filtered_project_directory):
                 statistics['files'] += 1
                 try:
                     functions = extractor.extract(read_file(filename))
                     statistics['functions'] += len(functions)
-                    statistics['functions_with_types'] += sum(1 for function in functions if function.has_types())
-                    project['files'].append({
-                        'filename': filename,
-                        'functions': functions
-                    })
+                    statistics['functions_with_types'] += sum(function.has_types() for function in functions)
+                    extracted_functions[filename] = functions
                 except ParseError:
                     statistics['unparsable_files'] += 1
+
+            print('Preprocessing...')
+            preprocessed_functions = {}
+            for filename, functions in extracted_functions.items():
+                preprocessed_functions[filename] = [preprocessor.preprocess(function) for function in functions]
+
+            project['files'] = [{'filename': filename, 'functions': functions}
+                                for filename, functions in preprocessed_functions.items()]
 
             print('Remove project files...')
             shutil.rmtree(cloned_project_directory)
@@ -143,7 +151,8 @@ parser.add_argument('--projects_file',
                     default='./resources/mypy-dependents-by-stars.json')
 parser.add_argument('--limit',
                     help='limit the number of projects for which the pipeline should run',
-                    type=int)
+                    type=int,
+                    default=0)
 args = parser.parse_args()
 
 # Open projects file and run pipeline

@@ -128,7 +128,10 @@ class Extractor():
 
     def extract_docstring_descriptions(self, docstring: str) -> Dict[str, Optional[Collection[str]]]:
         """Extract the return description from the docstring"""
-        parsed_docstring = docstring_parser.parse(docstring)
+        try:
+            parsed_docstring = docstring_parser.parse(docstring)
+        except Exception:
+            return {"function_descr": None, "params": {}, "return_descr": None}
 
         descr_map = {"function_descr": parsed_docstring.short_description,
                      "params": {},

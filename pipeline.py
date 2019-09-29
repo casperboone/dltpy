@@ -6,7 +6,7 @@ import time
 import traceback
 
 import pandas as pd
-from joblib import Parallel, delayed
+from joblib import delayed
 
 from cloner import Cloner
 from extractor import Extractor, ParseError
@@ -22,8 +22,11 @@ preprocessor = NLPreprocessor()
 # Create output directory
 if not os.path.isdir('./output'):
     os.mkdir('./output')
-output_directory = os.path.join('./output', str(int(time.time())))
-os.mkdir(output_directory)
+
+
+# CONFIG
+OUTPUT_DIRECTORY = os.path.join('./output', str(int(time.time())))
+USE_CACHE = True
 
 
 def list_files(directory: str) -> list:
@@ -45,6 +48,15 @@ def read_file(filename: str) -> str:
     """
     with open(filename) as file:
         return file.read()
+
+
+def get_project_filename(project) -> str:
+    """
+    Return the filename at which a project datafile should be stored.
+    :param project: the project dict
+    :return: return filename
+    """
+    return os.path.join(OUTPUT_DIRECTORY, f"{project['author']}{project['repo']}-functions.csv")
 
 
 def write_project(project) -> None:
@@ -69,23 +81,30 @@ def write_project(project) -> None:
                 assert len(function_metadata) == len(columns), \
                     f"Assertion failed size of columns should be same as the size of the data tuple."
 
+    if len(functions) == 0:
+        return
     function_df = pd.DataFrame(functions, columns=columns)
     function_df['arg_names_len'] = function_df['arg_names'].apply(len)
     function_df['arg_types_len'] = function_df['arg_types'].apply(len)
-    function_df.to_csv(os.path.join(output_directory, f"{project['author']}{project['repo']}-functions.csv"))
+    function_df.to_csv(get_project_filename(project))
 
 
 def run_pipeline(projects: list) -> None:
     """
     Run the pipeline (clone, filter, extract, remove) for all given projects
     """
-    ParallelExecutor(n_jobs=args.jobs)(total=len(projects))(delayed(process_project)(i, project) for i, project in enumerate(projects, start=1))
+    ParallelExecutor(n_jobs=args.jobs)(total=len(projects))(
+        delayed(process_project)(i, project) for i, project in enumerate(projects, start=1))
 
 
 def process_project(i, project):
     try:
         project_id = f'{project["author"]}/{project["repo"]}'
         print(f'Running pipeline for project {i} {project_id}')
+
+        if os.path.exists(get_project_filename(project)) and USE_CACHE:
+            print(f"Found cached copy for project {project_id}")
+            return
 
         project['files'] = []
 
@@ -138,14 +157,25 @@ parser.add_argument("--jobs",
                     help="number of jobs to use for pipeline.",
                     type=int,
                     default=-1)
+parser.add_argument("--output_dir",
+                    help="output dir for the pipeline",
+                    type=str,
+                    default=os.path.join('./output', str(int(time.time()))))
 
-args = parser.parse_args()
+if __name__ == '__main__':
+    # Parse args
+    args = parser.parse_args()
 
-# Open projects file and run pipeline
-with open(args.projects_file) as json_file:
-    projects = json.load(json_file)
+    # Create output dir
+    OUTPUT_DIRECTORY = args.output_dir
+    if not os.path.exists(OUTPUT_DIRECTORY):
+        os.mkdir(OUTPUT_DIRECTORY)
 
-    if args.limit > 0:
-        projects = projects[:args.limit]
+    # Open projects file and run pipeline
+    with open(args.projects_file) as json_file:
+        projects = json.load(json_file)
 
-    run_pipeline(projects)
+        if args.limit > 0:
+            projects = projects[:args.limit]
+
+        run_pipeline(projects)

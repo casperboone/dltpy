@@ -12,6 +12,7 @@ from cloner import Cloner
 from extractor import Extractor, ParseError
 from nl_preprocessing import NLPreprocessor
 from project_filter import ProjectFilter
+from utils import ParallelExecutor
 
 cloner = Cloner()
 project_filter = ProjectFilter()
@@ -72,29 +73,11 @@ def write_project(project) -> None:
     function_df.to_csv(os.path.join(output_directory, f"{project['author']}{project['repo']}-functions.csv"))
 
 
-def write_statistics(statistics: dict) -> None:
-    """
-    Write statistics to the output directory
-    """
-    with open(os.path.join(output_directory, 'statistics.json'), 'w') as file:
-        json.dump(statistics, file, default=lambda o: o.__dict__, indent=4)
-        file.close()
-
-
 def run_pipeline(projects: list) -> None:
     """
     Run the pipeline (clone, filter, extract, remove) for all given projects
     """
-    statistics = {
-        'projects': len(projects),
-        'failed_projects': 0,
-        'files': 0,
-        'unparsable_files': 0,
-        'functions': 0,
-        'functions_with_types': 0
-    }
-
-    Parallel(n_jobs=args.jobs)(delayed(process_project)(i, project) for i, project in enumerate(projects, start=1))
+    ParallelExecutor(n_jobs=args.jobs)(total=len(projects))(delayed(process_project)(i, project) for i, project in enumerate(projects, start=1))
 
 
 def process_project(i, project):
@@ -133,13 +116,10 @@ def process_project(i, project):
     except KeyboardInterrupt:
         quit(1)
     except Exception:
-        # statistics['failed_projects'] += 1
-        # print(f'Running pipeline for project {i}/{len(projects)} failed')
         print(f'Running pipeline for project {i} failed')
         traceback.print_exc()
     finally:
         write_project(project)
-        # write_statistics(statistics)
 
 
 # Parse command line arguments

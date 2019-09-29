@@ -153,11 +153,18 @@ parser.add_argument('--limit',
                     help='limit the number of projects for which the pipeline should run',
                     type=int,
                     default=0)
+parser.add_argument('--start',
+                    help='start position within projects list',
+                    type=int,
+                    default=0)
 args = parser.parse_args()
 
 # Open projects file and run pipeline
 with open(args.projects_file) as json_file:
     projects = json.load(json_file)
+
+    if args.start > 0:
+        projects = projects[args.start:]
 
     if args.limit > 0:
         projects = projects[:args.limit]

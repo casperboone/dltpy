@@ -70,6 +70,8 @@ def write_project(project) -> None:
                     f"Assertion failed size of columns should be same as the size of the data tuple."
 
     function_df = pd.DataFrame(functions, columns=columns)
+    function_df['arg_names_len'] = function_df['arg_names'].apply(len)
+    function_df['arg_types_len'] = function_df['arg_types'].apply(len)
     function_df.to_csv(os.path.join(output_directory, f"{project['author']}{project['repo']}-functions.csv"))
 
 

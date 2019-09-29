@@ -4,9 +4,9 @@ import os
 import shutil
 import time
 import traceback
-from pprint import pprint
 
 import pandas as pd
+from joblib import Parallel, delayed
 
 from cloner import Cloner
 from extractor import Extractor, ParseError
@@ -46,33 +46,30 @@ def read_file(filename: str) -> str:
         return file.read()
 
 
-def write_project_output(projects: list) -> None:
-    """
-    Write a list of all found functions and a list of all found functions with types to the output directory
-    """
+def write_project(project) -> None:
     functions = []
     columns = None
 
-    for project in projects:
-        if 'files' in project:
-            for file in project['files']:
-                for function in file['functions']:
-                    if columns is None:
-                        columns = ['author', 'repo', 'file', 'has_type'] + list(function.tuple_keys())
+    if 'files' in project:
+        for file in project['files']:
+            for function in file['functions']:
+                if columns is None:
+                    columns = ['author', 'repo', 'file', 'has_type'] + list(function.tuple_keys())
 
-                    function_metadata = (
-                                            project['author'],
-                                            project['repo'],
-                                            file['filename'],
-                                            function.has_types()
-                                        ) + function.as_tuple()
-                    functions.append(function_metadata)
+                function_metadata = (
+                                        project['author'],
+                                        project['repo'],
+                                        file['filename'],
+                                        function.has_types()
+                                    ) + function.as_tuple()
 
-                    assert len(function_metadata) == len(columns), \
-                        f"Assertion failed size of columns should be same as the size of the data tuple."
+                functions.append(function_metadata)
+
+                assert len(function_metadata) == len(columns), \
+                    f"Assertion failed size of columns should be same as the size of the data tuple."
 
     function_df = pd.DataFrame(functions, columns=columns)
-    function_df.to_csv(os.path.join(output_directory, "functions.csv"))
+    function_df.to_csv(os.path.join(output_directory, f"{project['author']}{project['repo']}-functions.csv"))
 
 
 def write_statistics(statistics: dict) -> None:
@@ -97,50 +94,52 @@ def run_pipeline(projects: list) -> None:
         'functions_with_types': 0
     }
 
-    for i, project in enumerate(projects, start=1):
-        try:
-            print(f'Running pipeline for project {i}/{len(projects)}: {project["author"]}/{project["repo"]}')
+    Parallel(n_jobs=args.jobs)(delayed(process_project)(i, project) for i, project in enumerate(projects, start=1))
 
-            project['files'] = []
 
-            print('Cloning...')
-            cloned_project_directory = cloner.clone(project["author"], project["repo"])
+def process_project(i, project):
+    try:
+        project_id = f'{project["author"]}/{project["repo"]}'
+        print(f'Running pipeline for project {i} {project_id}')
 
-            print('Filtering...')
-            filtered_project_directory = project_filter.filter_directory(cloned_project_directory)
+        project['files'] = []
 
-            print('Extracting...')
-            extracted_functions = {}
-            for filename in list_files(filtered_project_directory):
-                statistics['files'] += 1
-                try:
-                    functions = extractor.extract(read_file(filename))
-                    statistics['functions'] += len(functions)
-                    statistics['functions_with_types'] += sum(function.has_types() for function in functions)
-                    extracted_functions[filename] = functions
-                except ParseError:
-                    statistics['unparsable_files'] += 1
+        print(f'Cloning for {project_id}...')
+        cloned_project_directory = cloner.clone(project["author"], project["repo"])
 
-            print('Preprocessing...')
-            preprocessed_functions = {}
-            for filename, functions in extracted_functions.items():
-                preprocessed_functions[filename] = [preprocessor.preprocess(function) for function in functions]
+        print(f'Filtering for {project_id}...')
+        filtered_project_directory = project_filter.filter_directory(cloned_project_directory)
 
-            project['files'] = [{'filename': filename, 'functions': functions}
-                                for filename, functions in preprocessed_functions.items()]
+        print(f'Extracting for {project_id}...')
+        extracted_functions = {}
+        for filename in list_files(filtered_project_directory):
+            try:
+                functions = extractor.extract(read_file(filename))
+                extracted_functions[filename] = functions
+            except ParseError:
+                print(f"Could not parse file {filename}")
+                # statistics['unparsabl_files'] += 1
 
-            print('Remove project files...')
-            shutil.rmtree(cloned_project_directory)
-        except KeyboardInterrupt:
-            quit(1)
-        except Exception:
-            statistics['failed_projects'] += 1
-            print(f'Running pipeline for project {i}/{len(projects)} failed')
-            traceback.print_exc()
-        finally:
-            write_project_output(projects)
-            write_statistics(statistics)
-    pprint(statistics)
+        print(f'Preprocessing for {project_id}...')
+        preprocessed_functions = {}
+        for filename, functions in extracted_functions.items():
+            preprocessed_functions[filename] = [preprocessor.preprocess(function) for function in functions]
+
+        project['files'] = [{'filename': filename, 'functions': functions}
+                            for filename, functions in preprocessed_functions.items()]
+
+        print(f'Remove project files for {project_id}...')
+        shutil.rmtree(cloned_project_directory)
+    except KeyboardInterrupt:
+        quit(1)
+    except Exception:
+        # statistics['failed_projects'] += 1
+        # print(f'Running pipeline for project {i}/{len(projects)} failed')
+        print(f'Running pipeline for project {i} failed')
+        traceback.print_exc()
+    finally:
+        write_project(project)
+        # write_statistics(statistics)
 
 
 # Parse command line arguments
@@ -153,6 +152,11 @@ parser.add_argument('--limit',
                     help='limit the number of projects for which the pipeline should run',
                     type=int,
                     default=0)
+parser.add_argument("--jobs",
+                    help="number of jobs to use for pipeline.",
+                    type=int,
+                    default=-1)
+
 args = parser.parse_args()
 
 # Open projects file and run pipeline

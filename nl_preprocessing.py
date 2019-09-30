@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 from functools import reduce
+from typing import Optional
 
 from extractor import Function
 import re
@@ -31,7 +32,7 @@ class NLPreprocessor:
             return_descr=self.process_sentence(function.return_descr)
         )
 
-    def process_sentence(self, sentence: str) -> str:
+    def process_sentence(self, sentence: str) -> Optional[str]:
         """
         Process a natural language sentence
         """

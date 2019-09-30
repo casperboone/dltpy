@@ -1,4 +1,4 @@
-from typing import Tuple, Type, Union, List, Optional, Any, Dict, Collection
+from typing import Tuple, Type, Union, List, Optional, Any, Dict, Pattern, Match
 from astor import code_gen
 import ast
 import re
@@ -10,8 +10,9 @@ class Function:
     Representation of a parsed python function
     """
 
-    def __init__(self, name, docstring, func_descr, arg_names, arg_types,
-                 arg_descrs, return_type, return_expr, return_descr):
+    def __init__(self, name: str, docstring: str, func_descr: Optional[str], arg_names: List[str], arg_types: List[str],
+                 arg_descrs: Optional[List[str]], return_type: str, return_expr: List[str],
+                 return_descr: Optional[str]) -> None:
         self.name = name
         self.docstring = docstring
         self.func_descr = func_descr
@@ -22,7 +23,7 @@ class Function:
         self.return_expr = return_expr
         self.return_descr = return_descr
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         if isinstance(other, Function):
             return self.name == other.name and \
                    self.docstring == other.docstring and \
@@ -36,7 +37,7 @@ class Function:
 
         return False
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         values = list(map(lambda x: repr(x), self.__dict__.values()))
         values = ",".join(values)
         return "Function(%s)" % values
@@ -53,12 +54,12 @@ class Function:
 
 class Visitor(ast.NodeVisitor):
 
-    def __init__(self):
+    def __init__(self) -> None:
         # fn here is tuple: (node, [return_node1, ...])
         self.fns = []
         self.return_exprs = []
 
-    def visit_FunctionDef(self, node):
+    def visit_FunctionDef(self, node) -> None:
         """
         When visiting (async) function definitions,
         save the main function node as well as all its return expressions
@@ -75,7 +76,7 @@ class Visitor(ast.NodeVisitor):
     # for the purpose of extracting names, types etc
     visit_AsyncFunctionDef = visit_FunctionDef
 
-    def visit_Return(self, node):
+    def visit_Return(self, node) -> None:
         self.return_exprs.append(node)
         self.generic_visit(node)
 
@@ -107,8 +108,10 @@ class Extractor():
         return_type: str = self.extract_return_type(node)
         exprs: List[str] = [self.pretty_print(re) for re in return_exprs]
 
-        docstring_descr = self.extract_docstring_descriptions(self.check_docstring(docstring))
-        arg_descrs = list(map(
+        docstring_descr: Dict[
+            str, Union[Union[Optional[str], Dict[str, str]], Optional[str]]] = self.extract_docstring_descriptions(
+            self.check_docstring(docstring))
+        arg_descrs: List[str] = list(map(
             lambda arg_name: docstring_descr["params"][arg_name] if arg_name in docstring_descr['params'] else '',
             arg_names
         ))
@@ -126,16 +129,18 @@ class Extractor():
         """Extract the docstring from a function"""
         return ast.get_docstring(node) or ""
 
-    def extract_docstring_descriptions(self, docstring: str) -> Dict[str, Optional[Collection[str]]]:
+    def extract_docstring_descriptions(self, docstring: str) -> Dict[
+        str, Union[Union[Optional[str], Dict[str, str]], Optional[str]]]:
         """Extract the return description from the docstring"""
         try:
-            parsed_docstring = docstring_parser.parse(docstring)
+            parsed_docstring: docstring_parser.parser.Docstring = docstring_parser.parse(docstring)
         except Exception:
             return {"function_descr": None, "params": {}, "return_descr": None}
 
-        descr_map = {"function_descr": parsed_docstring.short_description,
-                     "params": {},
-                     "return_descr": None}
+        descr_map: Dict[str, Union[Union[str, Dict[str, str]], Optional[str]]] = {
+            "function_descr": parsed_docstring.short_description,
+            "params": {},
+            "return_descr": None}
 
         if parsed_docstring.returns is not None:
             descr_map["return_descr"] = parsed_docstring.returns.description
@@ -147,10 +152,10 @@ class Extractor():
 
     def check_docstring(self, docstring: str) -> str:
         """Check the docstring if it has a valid structure for parsing and returns a valid docstring."""
-        dash_line_matcher = re.compile("\s*--+")
-        param_keywords = ["Parameters", "Params", "Arguments", "Args"]
-        return_keywords = ["Returns", "Return"]
-        break_keywords = ["See Also", "Examples"]
+        dash_line_matcher: Pattern[str] = re.compile("\s*--+")
+        param_keywords: List[str] = ["Parameters", "Params", "Arguments", "Args"]
+        return_keywords: List[str] = ["Returns", "Return"]
+        break_keywords: List[str] = ["See Also", "Examples"]
 
         convert_docstring: bool = False
         add_indent: bool = False
@@ -161,7 +166,7 @@ class Extractor():
         preparsed_docstring: str = ""
         lines: List[str] = docstring.split("\n")
         for line in lines:
-            result = re.match(dash_line_matcher, line)
+            result: Optional[Match] = re.match(dash_line_matcher, line)
             if result is not None:
                 preparsed_docstring = preparsed_docstring[:-1] + ":" + "\n"
                 convert_docstring = True

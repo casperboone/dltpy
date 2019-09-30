@@ -7,6 +7,7 @@ import traceback
 
 import pandas as pd
 from joblib import delayed
+from typing import List
 
 from cloner import Cloner
 from extractor import Extractor, ParseError
@@ -22,7 +23,6 @@ preprocessor = NLPreprocessor()
 # Create output directory
 if not os.path.isdir('./output'):
     os.mkdir('./output')
-
 
 # CONFIG
 OUTPUT_DIRECTORY = os.path.join('./output', str(int(time.time())))
@@ -89,7 +89,7 @@ def write_project(project) -> None:
     function_df.to_csv(get_project_filename(project))
 
 
-def run_pipeline(projects: list) -> None:
+def run_pipeline(projects: List) -> None:
     """
     Run the pipeline (clone, filter, extract, remove) for all given projects
     """
@@ -97,7 +97,7 @@ def run_pipeline(projects: list) -> None:
         delayed(process_project)(i, project) for i, project in enumerate(projects, start=1))
 
 
-def process_project(i, project):
+def process_project(i, project) -> None:
     try:
         project_id = f'{project["author"]}/{project["repo"]}'
         print(f'Running pipeline for project {i} {project_id}')
@@ -173,7 +173,7 @@ if __name__ == '__main__':
 
     # Open projects file and run pipeline
     with open(args.projects_file) as json_file:
-        projects = json.load(json_file)
+        projects: List = json.load(json_file)
 
         if args.limit > 0:
             projects = projects[:args.limit]

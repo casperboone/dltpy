@@ -13,9 +13,11 @@ class Cloner:
         repo_url = 'git@github.com:' + author + '/' + repo + '.git'
         destination_path = os.path.join(destination, author + '__' + repo)
 
-        if os.path.isdir(destination_path):
-            shutil.rmtree(destination_path)
-
-        Repo.clone_from(repo_url, destination_path)
-
         return destination_path
+        #
+        # if os.path.isdir(destination_path):
+        #     shutil.rmtree(destination_path)
+        #
+        # Repo.clone_from(repo_url, destination_path)
+        #
+        # return destination_path

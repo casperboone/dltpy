@@ -94,7 +94,7 @@ def run_pipeline(projects: list) -> None:
     Run the pipeline (clone, filter, extract, remove) for all given projects
     """
     ParallelExecutor(n_jobs=args.jobs)(total=len(projects))(
-        delayed(process_project)(i, project) for i, project in enumerate(projects, start=1))
+        delayed(process_project)(i, project) for i, project in enumerate(projects, start=args.start))
 
 
 def process_project(i, project):
@@ -161,6 +161,10 @@ parser.add_argument("--output_dir",
                     help="output dir for the pipeline",
                     type=str,
                     default=os.path.join('./output', str(int(time.time()))))
+parser.add_argument('--start',
+                    help='start position within projects list',
+                    type=int,
+                    default=0)
 
 if __name__ == '__main__':
     # Parse args

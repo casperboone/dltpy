@@ -202,7 +202,8 @@ if __name__ == '__main__':
     # Split df
     print("Extracting arguments")
     df_params = gen_argument_df(df)
-    print(f"Extracted a total of {len(df_params)} arguments.")
+    print(f"Extracted a total of {len(df_params)} arguments with type {sum(df_params['arg_type'] != '')}.")
+    df_params = df_params[df_params['arg_type'] != '']
 
     # Encode types as int
     df, df_params = encode_types(df, df_params)
@@ -211,3 +212,4 @@ if __name__ == '__main__':
     df = df.drop(columns=['file', 'author'])
 
     df.to_csv("_ml_inputs.csv", index=False)
+    df_params.to_csv("_ml_inputs_args.csv", index=False)

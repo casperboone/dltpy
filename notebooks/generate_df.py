@@ -119,7 +119,7 @@ def gen_argument_df(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(arguments, columns=['func_name', 'arg_name', 'arg_type', 'arg_comment'])
 
 
-def encode_types(df: pd.DataFrame, df_args: pd.DataFrame, threshold:int = 999) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def encode_types(df: pd.DataFrame, df_args: pd.DataFrame, threshold: int = 999) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Encode the dataframe types to integers.
     :param df: dataframe with function data

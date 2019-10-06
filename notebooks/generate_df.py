@@ -1,4 +1,6 @@
 import os
+from typing import Tuple
+
 import pandas as pd
 import numpy as np
 
@@ -117,45 +119,48 @@ def gen_argument_df(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(arguments, columns=['func_name', 'arg_name', 'arg_type', 'arg_comment'])
 
 
-def encode_types(df: pd.DataFrame) -> pd.DataFrame:
+def encode_types(df: pd.DataFrame, df_args: pd.DataFrame, threshold:int = 999) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Encode the dataframe types to integers.
-    :param df:
+    :param df: dataframe with function data
+    :param df_args: dataframe with argument data
+    :param threshold: number of common types to keep
     :return:
     """
     le = preprocessing.LabelEncoder()
 
     # All types
     return_types = df['return_type'].values
-    arg_types = np.hstack(df['arg_types'].values)
-    rt = np.concatenate((return_types, arg_types), axis=0)
-    unique, counts = np.unique(rt, return_counts=True)
-    print(f"Found {len(unique)} unique types in a total of {len(rt)} types.")
+    arg_types = df_args['arg_type'].values
+    all_types = np.concatenate((return_types, arg_types), axis=0)
 
-    # type we are going to keep
+    unique, counts = np.unique(all_types, return_counts=True)
+    print(f"Found {len(unique)} unique types in a total of {len(all_types)} types.")
+
+    # keep the threshold most common types rest is mapped to 'other'
+    common_types = [unique[i] for i in np.argsort(counts)[::-1][:threshold]]
+
     print("Remapping uncommon types for functions")
-    common_types = [unique[i] for i in np.argsort(counts)[::-1][:999]]
     df['return_type_t'] = df['return_type'].apply(lambda x: x if x in common_types else 'other')
-    print("Remapping uncommon types for arguments")
-    df['arg_types_t'] = df['arg_types'].apply(lambda x: [i if i in common_types else 'other' for i in x])
 
-    print("Fitting label encoder")
+    print("Remapping uncommon types for arguments")
+    df_args['arg_type_t'] = df_args['arg_type'].apply(lambda x: x if x in common_types else 'other')
+
+    print("Fitting label encoder on transformed types")
     # All types transformed
     return_types = df['return_type_t'].values
-    arg_types = np.hstack(df['arg_types_t'].values)
-    rt = np.concatenate((return_types, arg_types), axis=0)
-    le.fit(rt)
-
-    #     print(le.classes_)
+    arg_types = df_args['arg_type_t'].values
+    all_types = np.concatenate((return_types, arg_types), axis=0)
+    le.fit(all_types)
 
     # transform all type
     print("Transforming return types")
     df['return_type_enc'] = le.transform(return_types)
 
     print("Transforming args types")
-    df['arg_types_enc'] = df['arg_types_t'].apply(lambda x: le.transform(x))
+    df_args['arg_type_enc'] = le.transform(arg_types)
 
-    return df
+    return df, df_args
 
 
 if __name__ == '__main__':
@@ -190,17 +195,17 @@ if __name__ == '__main__':
     print("Formatting dataframe")
     df = format_df(df)
 
+    print(f"Functions before dropping on empty return expression {len(df)}")
+    df = df[df['return_expr'].apply(len) > 0]
+    print(f"Functions after dropping on empty return expression {len(df)}")
+
     # Split df
     print("Extracting arguments")
     df_params = gen_argument_df(df)
     print(f"Extracted a total of {len(df_params)} arguments.")
 
     # Encode types as int
-    df = encode_types(df)
-
-    print(f"Functions before dropping on empty return expression {len(df)}")
-    df = df[df['return_expr'].apply(len) > 0]
-    print(f"Functions after dropping on empty return expression {len(df)}")
+    df, df_params = encode_types(df, df_params)
 
     # Drop all columns useless for the ML algorithms
     df = df.drop(columns=['file', 'author'])

@@ -3,14 +3,23 @@ from typing import Tuple
 
 import pandas as pd
 import numpy as np
+import pickle
 
-# CONFIG
-
-# project root
+from pandas import DataFrame
 from sklearn import preprocessing
+from sklearn.preprocessing import LabelEncoder
 
-PR = "../"
-DATA_FILES_DIR = os.path.join(PR, "output/data")
+# Configuration
+PROJECT_ROOT = os.path.dirname(__file__)
+DATA_FILES_DIR = os.path.join(PROJECT_ROOT, "output/data/")
+ML_INPUTS_PATH = os.path.join(PROJECT_ROOT, "output/ml_inputs/")
+ML_RETURN_DF_PATH = os.path.join(ML_INPUTS_PATH, "_ml_return.csv")
+ML_PARAM_DF_PATH = os.path.join(ML_INPUTS_PATH, "_ml_param.csv")
+LABEL_ENCODER_PATH = os.path.join(ML_INPUTS_PATH, "label_encoder.pkl")
+DATA_FILE = os.path.join(ML_INPUTS_PATH, "_all_data.csv")
+FILTERED_DATA_FILE = os.path.join(ML_INPUTS_PATH, "_data_filtered.csv")
+
+CACHE = True
 
 
 def list_files(directory: str, full=True) -> list:
@@ -101,6 +110,10 @@ def filter_functions(df: pd.DataFrame) -> pd.DataFrame:
     df = df.dropna(subset=['docstring'])
     print(f"Functions after dropping on empty docstring {len(df)}")
 
+    print(f"Functions before dropping on empty return expression {len(df)}")
+    df = df[df['return_expr'].apply(lambda x: len(eval(x))) > 0]
+    print(f"Functions after dropping on empty return expression {len(df)}")
+
     return df
 
 
@@ -119,13 +132,14 @@ def gen_argument_df(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(arguments, columns=['func_name', 'arg_name', 'arg_type', 'arg_comment'])
 
 
-def encode_types(df: pd.DataFrame, df_args: pd.DataFrame, threshold: int = 999) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def encode_types(df: pd.DataFrame, df_args: pd.DataFrame, threshold: int = 999) -> Tuple[
+    DataFrame, DataFrame, LabelEncoder]:
     """
     Encode the dataframe types to integers.
     :param df: dataframe with function data
     :param df_args: dataframe with argument data
     :param threshold: number of common types to keep
-    :return:
+    :return: dataframe with types encoded and the labels encoder used for it.
     """
     le = preprocessing.LabelEncoder()
 
@@ -160,56 +174,61 @@ def encode_types(df: pd.DataFrame, df_args: pd.DataFrame, threshold: int = 999) 
     print("Transforming args types")
     df_args['arg_type_enc'] = le.transform(arg_types)
 
-    return df, df_args
+    return df, df_args, le
 
 
 if __name__ == '__main__':
-    DATA_FILE = "_temp_2.csv"
-    FILTERED_DATA_FILE = "_temp_filtered.csv"
-    CACHE = True
+    if not os.path.exists(ML_INPUTS_PATH):
+        os.makedirs(ML_INPUTS_PATH)
 
-    if CACHE:
-        if os.path.exists(FILTERED_DATA_FILE):
-            print("Loading filtered cached copy")
-            df = pd.read_csv(FILTERED_DATA_FILE)
-        else:
-            print("Loading cached copy")
-            df = pd.read_csv(DATA_FILE)
-            df = filter_functions(df)
-            df.to_csv(FILTERED_DATA_FILE, index=False)
+    if CACHE and os.path.exists(FILTERED_DATA_FILE):
+        print("Loading filtered cached copy")
+        df = pd.read_csv(FILTERED_DATA_FILE)
+    elif CACHE and os.path.exists(DATA_FILE):
+        print("Loading cached copy")
+        df = pd.read_csv(DATA_FILE)
+        df = filter_functions(df)
+        df.to_csv(FILTERED_DATA_FILE, index=False)
     else:
         DATA_FILES = list_files(DATA_FILES_DIR)
         print("Found %d datafiles" % len(DATA_FILES))
 
         df = parse_df(DATA_FILES, batch_size=128)
-        print("Dataframe loaded!")
 
-        print("Formatting dataframe")
-        # df = format_df(df)
-        print(df.head())
-
-        print("Dataframe formatted, writing it...")
+        print("Dataframe loaded writing it to CSV")
         df.to_csv(DATA_FILE, index=False)
+
+        print("Filtering dataframe")
+        df = filter_functions(df)
+
+        print("Dataframe filtered writing cached version to CSV")
+        df.to_csv(FILTERED_DATA_FILE, index=False)
 
     # Format dataframe
     print("Formatting dataframe")
     df = format_df(df)
 
-    print(f"Functions before dropping on empty return expression {len(df)}")
-    df = df[df['return_expr'].apply(len) > 0]
-    print(f"Functions after dropping on empty return expression {len(df)}")
-
     # Split df
     print("Extracting arguments")
     df_params = gen_argument_df(df)
+
     print(f"Extracted a total of {len(df_params)} arguments with type {sum(df_params['arg_type'] != '')}.")
     df_params = df_params[df_params['arg_type'] != '']
 
     # Encode types as int
-    df, df_params = encode_types(df, df_params)
+    print("Encoding types")
+    df, df_params, label_encoder = encode_types(df, df_params)
+
+    print("Storing label encoder")
+    with open(LABEL_ENCODER_PATH, 'wb') as file:
+        pickle.dump(label_encoder, file)
 
     # Drop all columns useless for the ML algorithms
-    df = df.drop(columns=['file', 'author'])
+    df = df.drop(columns=['file', 'author', 'repo', 'has_type', 'arg_names', 'arg_types', 'arg_descr'])
 
-    df.to_csv("_ml_inputs.csv", index=False)
-    df_params.to_csv("_ml_inputs_args.csv", index=False)
+    # Add argument names as a string except self
+    df['arg_names_str'] = df['arg_names'].apply(lambda l: " ".join([v for v in l if v != 'self']))
+
+    # Store the dataframes
+    df.to_csv(ML_RETURN_DF_PATH, index=False)
+    df_params.to_csv(ML_PARAM_DF_PATH, index=False)

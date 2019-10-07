@@ -1,8 +1,9 @@
 from gensim.models import Word2Vec, KeyedVectors
-from gensim.test.utils import datapath
 import pandas as pd
 import multiprocessing
 import itertools
+import numpy as np
+from typing import Iterator, List, Callable
 
 import time
 import logging
@@ -15,13 +16,13 @@ class Embedder:
     Create a word embeddings using Word2Vec.
     """
 
-    def __init__(self, file):
+    def __init__(self, file: str) -> None:
         self.df = pd.read_csv(file)
 
-    def __init__(self, df):
+    def __init__(self, df) -> None:
         self.df = df
 
-    def getLanguageIterator(self):
+    def getLanguageIterator(self) -> Iterator[List[str]]:
         """
         Get an iterator over the whole collection of descriptions language.
         :return: iterator over the language data
@@ -33,27 +34,29 @@ class Embedder:
 
         return all_comment_sentences
 
-    def getCodeIterator(self):
+    def getCodeIterator(self) -> Iterator[List[str]]:
         """
         Get an iterator over the whole collection of the code expressions.
         :return: iterator over the language data
         """
-        #return_expr_sentences = (row.split() for row in self.df['return_expr'])
-        func_name_sentences = (row.split(" ") for row in self.df['name'] if not isinstance(row, float))
+        return_expr_sentences = (row.split() for row in self.df['return_expr'])
+        func_name_sentences = (row.split() for row in self.df['name'] if not isinstance(row, float))
+        #TODO placeholder until arg_names are all sentences
+        self.df['arg_names'] = self.df['arg_names'].apply(lambda x: np.asarray(eval(x)))
         arg_names_sentences = (row.split(" ") for row in self.df['arg_names'])
-        #all_comment_sentences = itertools.chain(return_expr_sentences, func_name_sentences, arg_names_sentences)
-        all_comment_sentences = itertools.chain(func_name_sentences, arg_names_sentences)
+
+        all_comment_sentences = itertools.chain(return_expr_sentences, func_name_sentences, arg_names_sentences)
 
         return all_comment_sentences
 
-    def trainModel(self, corpusIteratorFunction, modelPathName):
+    def trainModel(self, corpus_iterator_function: Callable[[], Iterator[List[str]]], model_path_name: str) -> None:
         """
         Train a Word2Vec model and save the output to a file.
-        :param corpusIteratorFunction: function expression that returns a iterator for the corpus
-        :param modelPathName: path name of the output file
+        :param corpus_iterator_function: function expression that returns a iterator for the corpus
+        :param model_path_name: path name of the output file
         """
 
-        corpusIterator = corpusIteratorFunction()
+        corpus_iterator = corpus_iterator_function()
 
         cores = multiprocessing.cpu_count()
 
@@ -68,31 +71,31 @@ class Embedder:
 
         #t = time.time()
 
-        w2v_model.build_vocab(sentences=corpusIterator,
+        w2v_model.build_vocab(sentences=corpus_iterator,
                               progress_per=10000)
 
         #print('Time to build vocab: {} mins'.format(round((time.time() - t) / 60, 2)))
 
         #The iterator is reset here to the beginning again
-        corpusIterator = corpusIteratorFunction()
+        corpus_iterator = corpus_iterator_function()
         #t = time.time()
 
-        w2v_model.train(sentences=corpusIterator,
+        w2v_model.train(sentences=corpus_iterator,
                         total_examples=w2v_model.corpus_count,
                         epochs=1,
                         report_delay=1)
 
         #print('Time to train the model: {} mins'.format(round((time.time() - t) / 60, 2)))
 
-        w2v_model.save(modelPathName)
+        w2v_model.save(model_path_name)
 
-    def trainLanguageModel(self):
+    def trainLanguageModel(self) -> None:
         """
         Train a Word2Vec model for the descriptions and save to file.
         """
         self.trainModel(self.getLanguageIterator, 'output/temp_language.bin')
 
-    def trainCodeModel(self):
+    def trainCodeModel(self) -> None:
         """
         Train a Word2Vec model for the code expressions and save to file.
         """
@@ -107,3 +110,4 @@ class Embedder:
 if __name__ == '__main__':
     embedder = Embedder("output/_temp.csv")
     embedder.useModel()
+

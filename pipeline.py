@@ -153,29 +153,21 @@ parser.add_argument('--limit',
                     help='limit the number of projects for which the pipeline should run',
                     type=int,
                     default=0)
-parser.add_argument("--jobs",
-                    help="number of jobs to use for pipeline.",
+
+parser.add_argument('--start',
+                    help='start position within projects list',
                     type=int,
-                    default=-1)
-parser.add_argument("--output_dir",
-                    help="output dir for the pipeline",
-                    type=str,
-                    default=os.path.join('./output', str(int(time.time()))))
+                    default=0)
+args = parser.parse_args()
 
-if __name__ == '__main__':
-    # Parse args
-    args = parser.parse_args()
+# Open projects file and run pipeline
+with open(args.projects_file) as json_file:
+    projects: List = json.load(json_file)
 
-    # Create output dir
-    OUTPUT_DIRECTORY = args.output_dir
-    if not os.path.exists(OUTPUT_DIRECTORY):
-        os.mkdir(OUTPUT_DIRECTORY)
-
-    # Open projects file and run pipeline
-    with open(args.projects_file) as json_file:
-        projects: List = json.load(json_file)
-
-        if args.limit > 0:
-            projects = projects[:args.limit]
+    if args.start > 0:
+        projects = projects[args.start:]
+    
+    if args.limit > 0:
+        projects = projects[:args.limit]
 
         run_pipeline(projects)

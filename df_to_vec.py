@@ -1,10 +1,14 @@
 import random
+import sys
 import time
+from typing import Callable
 
 import pandas as pd
 from gensim.models import Word2Vec
 import numpy as np
 import os
+
+from pandas import Series
 
 WORD_VEC_LENGTH = 100
 NUMBER_OF_TYPES = 1000
@@ -56,7 +60,7 @@ class Datapoint:
 
             if self.feature_types[feature] == 'code' or self.feature_types[feature] == 'language':
                 vectorized_feature = vectorize_string(
-                    self.__dict__[feature],
+                    self.__dict__[feature] if isinstance(self.__dict__[feature], str) else '',
                     feature_length,
                     w2v_models[self.feature_types[feature]]
                 )
@@ -74,9 +78,7 @@ class Datapoint:
 
     def to_be_predicted_to_vec(self):
         vector = np.zeros(NUMBER_OF_TYPES)
-        # for now a random number
-        vector[random.randint(0, 3)] = 1
-        # vector[self.type] = 1
+        vector[self.type] = 1
         return vector
 
 
@@ -110,8 +112,8 @@ class ReturnDatapoint(Datapoint):
         self.name = name
         self.function_comment = function_comment
         self.return_comment = return_comment
-        self.return_expressions = ' '.join(return_expressions)
-        self.parameter_names = ' '.join(parameter_names)
+        self.return_expressions = ' '.join(return_expressions)  ### SHOULD BE DONE IN GENERATE DF
+        self.parameter_names = parameter_names
         self.type = type
 
         self.features = {
@@ -138,62 +140,40 @@ class ReturnDatapoint(Datapoint):
         return datapoint_type
 
 
-if not os.path.isdir('./output'):
-    os.mkdir('./output')
-output_directory = os.path.join('./output', str(int(time.time())))
-os.mkdir(output_directory)
+def process_datapoints(filename: str, type: str, transformation: Callable[[Series], Datapoint]):
+    print(f'Generating input vectors for {type} datapoints')
 
-df = pd.read_csv('resources/df_limited.csv')  # assumption: only functions with types
+    df = pd.read_csv(filename)
 
-df['arg_names'] = df['arg_names'].apply(lambda x: np.asarray(eval(x)))  # might not be necessary
-df['arg_descrs'] = df['arg_descrs'].apply(lambda x: np.asarray(eval(x)))
-df['return_expr'] = df['return_expr'].apply(lambda x: np.asarray(eval(x)))
+    if type == 'return':
+        df['return_expr'] = df['return_expr'].apply(lambda x: eval(x))  ### SHOULD BE DONE IN GENERATE DF
 
-count = 0
+    datapoints = df.apply(transformation, axis=1)
 
-parameter_datapoints = []
-return_datapoints = []
+    datapoints_result_x = np.stack(datapoints.apply(lambda x: x.to_vec()), axis=0)
+    np.save(os.path.join(output_directory, type + '_datapoints_x'), datapoints_result_x)
+    datapoints_result_y = np.stack(datapoints.apply(lambda x: x.to_be_predicted_to_vec()), axis=0)
+    np.save(os.path.join(output_directory, type + '_datapoints_y'), datapoints_result_y)
 
-df = df[:2]
 
-for index, row in df.iterrows():
-    # Set function comment to be docstring if function comment is empty
-    function_comment = row.func_descr if row.func_descr is str else row.docstring
+if __name__ == '__main__':
+    output_directory = './output/vectors'
 
-    # Generate data points
-    for parameter_index, parameter_name in enumerate(row.arg_names):
-        parameter_datapoints.append(
-            ParameterDatapoint(parameter_name, row.arg_descrs[parameter_index], row.arg_types[parameter_index])
-        )
+    if not os.path.isdir(output_directory):
+        os.mkdir(output_directory)
 
-    return_datapoints.append(
-        ReturnDatapoint(row['name'], function_comment, row.return_descr, row.return_expr, row.arg_names,
-                        row.return_type))
+    # Process parameter datapoints
+    process_datapoints(
+        './output/ml_inputs/_ml_param.csv',
+        'param',
+        lambda row: ParameterDatapoint(row.arg_name, row.arg_comment, row.arg_type_enc)
+    )
 
-# Write parameter datapoints to disk
-parameter_datapoints_result_x = np.zeros(
-    (len(parameter_datapoints), parameter_datapoints[0].vector_length(), WORD_VEC_LENGTH)
-)
-parameter_datapoints_result_y = np.zeros(
-    (len(parameter_datapoints), NUMBER_OF_TYPES)
-)
-for i, datapoint in enumerate(parameter_datapoints):
-    parameter_datapoints_result_x[i] = datapoint.to_vec()
-    parameter_datapoints_result_y[i] = datapoint.to_be_predicted_to_vec()
+    process_datapoints(
+        './output/ml_inputs/_ml_return.csv',
+        'return',
+        lambda row: ReturnDatapoint(row['name'], row.func_descr if row.func_descr is str else row.docstring,
+                                    row.return_descr, row.return_expr, row.arg_names_str, row.return_type_enc),
+    )
 
-np.save(os.path.join(output_directory, 'parameter_datapoints_x'), parameter_datapoints_result_x)
-np.save(os.path.join(output_directory, 'parameter_datapoints_y'), parameter_datapoints_result_y)
-
-# Write return datapoints to disk
-return_datapoints_result_x = np.zeros(
-    (len(return_datapoints), return_datapoints[0].vector_length(), WORD_VEC_LENGTH)
-)
-return_datapoints_result_y = np.zeros(
-    (len(return_datapoints), NUMBER_OF_TYPES)
-)
-for i, datapoint in enumerate(return_datapoints):
-    return_datapoints_result_x[i] = datapoint.to_vec()
-    return_datapoints_result_y[i] = datapoint.to_be_predicted_to_vec()
-
-np.save(os.path.join(output_directory, 'return_datapoints_result_x'), return_datapoints_result_x)
-np.save(os.path.join(output_directory, 'return_datapoints_result_y'), return_datapoints_result_y)
+# TO CHECK: param/return datapoints same length?

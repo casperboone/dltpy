@@ -4,14 +4,15 @@ import os
 import shutil
 import time
 import traceback
-from pprint import pprint
 
 import pandas as pd
+from joblib import delayed
 
 from cloner import Cloner
 from extractor import Extractor, ParseError
 from nl_preprocessing import NLPreprocessor
 from project_filter import ProjectFilter
+from utils import ParallelExecutor
 
 cloner = Cloner()
 project_filter = ProjectFilter()
@@ -21,8 +22,11 @@ preprocessor = NLPreprocessor()
 # Create output directory
 if not os.path.isdir('./output'):
     os.mkdir('./output')
-output_directory = os.path.join('./output', str(int(time.time())))
-os.mkdir(output_directory)
+
+
+# CONFIG
+OUTPUT_DIRECTORY = os.path.join('./output', str(int(time.time())))
+USE_CACHE = True
 
 
 def list_files(directory: str) -> list:
@@ -46,101 +50,96 @@ def read_file(filename: str) -> str:
         return file.read()
 
 
-def write_project_output(projects: list) -> None:
+def get_project_filename(project) -> str:
     """
-    Write a list of all found functions and a list of all found functions with types to the output directory
+    Return the filename at which a project datafile should be stored.
+    :param project: the project dict
+    :return: return filename
     """
+    return os.path.join(OUTPUT_DIRECTORY, f"{project['author']}{project['repo']}-functions.csv")
+
+
+def write_project(project) -> None:
     functions = []
     columns = None
 
-    for project in projects:
-        if 'files' in project:
-            for file in project['files']:
-                for function in file['functions']:
-                    if columns is None:
-                        columns = ['author', 'repo', 'file', 'has_type'] + list(function.tuple_keys())
+    if 'files' in project:
+        for file in project['files']:
+            for function in file['functions']:
+                if columns is None:
+                    columns = ['author', 'repo', 'file', 'has_type'] + list(function.tuple_keys())
 
-                    function_metadata = (
-                                            project['author'],
-                                            project['repo'],
-                                            file['filename'],
-                                            function.has_types()
-                                        ) + function.as_tuple()
-                    functions.append(function_metadata)
+                function_metadata = (
+                                        project['author'],
+                                        project['repo'],
+                                        file['filename'],
+                                        function.has_types()
+                                    ) + function.as_tuple()
 
-                    assert len(function_metadata) == len(columns), \
-                        f"Assertion failed size of columns should be same as the size of the data tuple."
+                functions.append(function_metadata)
 
+                assert len(function_metadata) == len(columns), \
+                    f"Assertion failed size of columns should be same as the size of the data tuple."
+
+    if len(functions) == 0:
+        return
     function_df = pd.DataFrame(functions, columns=columns)
-    function_df.to_csv(os.path.join(output_directory, "functions.csv"))
-
-
-def write_statistics(statistics: dict) -> None:
-    """
-    Write statistics to the output directory
-    """
-    with open(os.path.join(output_directory, 'statistics.json'), 'w') as file:
-        json.dump(statistics, file, default=lambda o: o.__dict__, indent=4)
-        file.close()
+    function_df['arg_names_len'] = function_df['arg_names'].apply(len)
+    function_df['arg_types_len'] = function_df['arg_types'].apply(len)
+    function_df.to_csv(get_project_filename(project))
 
 
 def run_pipeline(projects: list) -> None:
     """
     Run the pipeline (clone, filter, extract, remove) for all given projects
     """
-    statistics = {
-        'projects': len(projects),
-        'failed_projects': 0,
-        'files': 0,
-        'unparsable_files': 0,
-        'functions': 0,
-        'functions_with_types': 0
-    }
+    ParallelExecutor(n_jobs=args.jobs)(total=len(projects))(
+        delayed(process_project)(i, project) for i, project in enumerate(projects, start=args.start))
 
-    for i, project in enumerate(projects, start=1):
-        try:
-            print(f'Running pipeline for project {i}/{len(projects)}: {project["author"]}/{project["repo"]}')
 
-            project['files'] = []
+def process_project(i, project):
+    try:
+        project_id = f'{project["author"]}/{project["repo"]}'
+        print(f'Running pipeline for project {i} {project_id}')
 
-            print('Cloning...')
-            cloned_project_directory = cloner.clone(project["author"], project["repo"])
+        if os.path.exists(get_project_filename(project)) and USE_CACHE:
+            print(f"Found cached copy for project {project_id}")
+            return
 
-            print('Filtering...')
-            filtered_project_directory = project_filter.filter_directory(cloned_project_directory)
+        project['files'] = []
 
-            print('Extracting...')
-            extracted_functions = {}
-            for filename in list_files(filtered_project_directory):
-                statistics['files'] += 1
-                try:
-                    functions = extractor.extract(read_file(filename))
-                    statistics['functions'] += len(functions)
-                    statistics['functions_with_types'] += sum(function.has_types() for function in functions)
-                    extracted_functions[filename] = functions
-                except ParseError:
-                    statistics['unparsable_files'] += 1
+        print(f'Cloning for {project_id}...')
+        cloned_project_directory = cloner.clone(project["author"], project["repo"])
 
-            print('Preprocessing...')
-            preprocessed_functions = {}
-            for filename, functions in extracted_functions.items():
-                preprocessed_functions[filename] = [preprocessor.preprocess(function) for function in functions]
+        print(f'Filtering for {project_id}...')
+        filtered_project_directory = project_filter.filter_directory(cloned_project_directory)
 
-            project['files'] = [{'filename': filename, 'functions': functions}
-                                for filename, functions in preprocessed_functions.items()]
+        print(f'Extracting for {project_id}...')
+        extracted_functions = {}
+        for filename in list_files(filtered_project_directory):
+            try:
+                functions = extractor.extract(read_file(filename))
+                extracted_functions[filename] = functions
+            except ParseError:
+                print(f"Could not parse file {filename}")
 
-            print('Remove project files...')
-            shutil.rmtree(cloned_project_directory)
-        except KeyboardInterrupt:
-            quit(1)
-        except Exception:
-            statistics['failed_projects'] += 1
-            print(f'Running pipeline for project {i}/{len(projects)} failed')
-            traceback.print_exc()
-        finally:
-            write_project_output(projects)
-            write_statistics(statistics)
-    pprint(statistics)
+        print(f'Preprocessing for {project_id}...')
+        preprocessed_functions = {}
+        for filename, functions in extracted_functions.items():
+            preprocessed_functions[filename] = [preprocessor.preprocess(function) for function in functions]
+
+        project['files'] = [{'filename': filename, 'functions': functions}
+                            for filename, functions in preprocessed_functions.items()]
+
+        print(f'Remove project files for {project_id}...')
+        shutil.rmtree(cloned_project_directory)
+    except KeyboardInterrupt:
+        quit(1)
+    except Exception:
+        print(f'Running pipeline for project {i} failed')
+        traceback.print_exc()
+    finally:
+        write_project(project)
 
 
 # Parse command line arguments
@@ -153,20 +152,33 @@ parser.add_argument('--limit',
                     help='limit the number of projects for which the pipeline should run',
                     type=int,
                     default=0)
+parser.add_argument("--jobs",
+                    help="number of jobs to use for pipeline.",
+                    type=int,
+                    default=-1)
+parser.add_argument("--output_dir",
+                    help="output dir for the pipeline",
+                    type=str,
+                    default=os.path.join('./output', str(int(time.time()))))
 parser.add_argument('--start',
                     help='start position within projects list',
                     type=int,
                     default=0)
-args = parser.parse_args()
 
-# Open projects file and run pipeline
-with open(args.projects_file) as json_file:
-    projects = json.load(json_file)
+if __name__ == '__main__':
+    # Parse args
+    args = parser.parse_args()
 
-    if args.start > 0:
-        projects = projects[args.start:]
+    # Create output dir
+    OUTPUT_DIRECTORY = args.output_dir
+    if not os.path.exists(OUTPUT_DIRECTORY):
+        os.mkdir(OUTPUT_DIRECTORY)
 
-    if args.limit > 0:
-        projects = projects[:args.limit]
+    # Open projects file and run pipeline
+    with open(args.projects_file) as json_file:
+        projects = json.load(json_file)
 
-    run_pipeline(projects)
+        if args.limit > 0:
+            projects = projects[:args.limit]
+
+        run_pipeline(projects)

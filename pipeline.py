@@ -7,7 +7,6 @@ import traceback
 
 import pandas as pd
 from joblib import delayed
-from typing import List
 
 from cloner import Cloner
 from extractor import Extractor, ParseError
@@ -23,6 +22,7 @@ preprocessor = NLPreprocessor()
 # Create output directory
 if not os.path.isdir('./output'):
     os.mkdir('./output')
+
 
 # CONFIG
 OUTPUT_DIRECTORY = os.path.join('./output', str(int(time.time())))
@@ -89,15 +89,15 @@ def write_project(project) -> None:
     function_df.to_csv(get_project_filename(project))
 
 
-def run_pipeline(projects: List) -> None:
+def run_pipeline(projects: list) -> None:
     """
     Run the pipeline (clone, filter, extract, remove) for all given projects
     """
     ParallelExecutor(n_jobs=args.jobs)(total=len(projects))(
-        delayed(process_project)(i, project) for i, project in enumerate(projects, start=1))
+        delayed(process_project)(i, project) for i, project in enumerate(projects, start=args.start))
 
 
-def process_project(i, project) -> None:
+def process_project(i, project):
     try:
         project_id = f'{project["author"]}/{project["repo"]}'
         print(f'Running pipeline for project {i} {project_id}')
@@ -122,7 +122,6 @@ def process_project(i, project) -> None:
                 extracted_functions[filename] = functions
             except ParseError:
                 print(f"Could not parse file {filename}")
-                # statistics['unparsabl_files'] += 1
 
         print(f'Preprocessing for {project_id}...')
         preprocessed_functions = {}
@@ -153,21 +152,33 @@ parser.add_argument('--limit',
                     help='limit the number of projects for which the pipeline should run',
                     type=int,
                     default=0)
-
+parser.add_argument("--jobs",
+                    help="number of jobs to use for pipeline.",
+                    type=int,
+                    default=-1)
+parser.add_argument("--output_dir",
+                    help="output dir for the pipeline",
+                    type=str,
+                    default=os.path.join('./output', str(int(time.time()))))
 parser.add_argument('--start',
                     help='start position within projects list',
                     type=int,
                     default=0)
-args = parser.parse_args()
 
-# Open projects file and run pipeline
-with open(args.projects_file) as json_file:
-    projects: List = json.load(json_file)
+if __name__ == '__main__':
+    # Parse args
+    args = parser.parse_args()
 
-    if args.start > 0:
-        projects = projects[args.start:]
-    
-    if args.limit > 0:
-        projects = projects[:args.limit]
+    # Create output dir
+    OUTPUT_DIRECTORY = args.output_dir
+    if not os.path.exists(OUTPUT_DIRECTORY):
+        os.mkdir(OUTPUT_DIRECTORY)
+
+    # Open projects file and run pipeline
+    with open(args.projects_file) as json_file:
+        projects = json.load(json_file)
+
+        if args.limit > 0:
+            projects = projects[:args.limit]
 
         run_pipeline(projects)

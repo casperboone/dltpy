@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Tuple
 
 import pandas as pd
@@ -25,7 +26,7 @@ CACHE = True
 def list_files(directory: str, full=True) -> list:
     """
     List all files in the given directory.
-    
+
     :param directory: directory to search
     :param full: whether to return the full path
     :return: list of paths
@@ -223,11 +224,14 @@ if __name__ == '__main__':
     with open(LABEL_ENCODER_PATH, 'wb') as file:
         pickle.dump(label_encoder, file)
 
-    # Drop all columns useless for the ML algorithms
-    df = df.drop(columns=['file', 'author', 'repo', 'has_type', 'arg_names', 'arg_types', 'arg_descr'])
-
     # Add argument names as a string except self
     df['arg_names_str'] = df['arg_names'].apply(lambda l: " ".join([v for v in l if v != 'self']))
+
+    # Add return expressions as a string, replace self. and self within expressions
+    df['return_expr_str'] = df['return_expr'].apply(lambda l: " ".join([re.sub(r"self\.?", '', v) for v in l]))
+
+    # Drop all columns useless for the ML algorithms
+    df = df.drop(columns=['file', 'author', 'repo', 'has_type', 'arg_names', 'arg_types', 'arg_descrs', 'return_expr'])
 
     # Store the dataframes
     df.to_csv(ML_RETURN_DF_PATH, index=False)

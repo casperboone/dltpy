@@ -16,7 +16,7 @@ w2v_models = {
 }
 
 
-def vectorize_string(sentence, feature_length, w2v_model):
+def vectorize_string(sentence: str, feature_length: int, w2v_model: Word2Vec) -> np.ndarray:
     vector = np.zeros((feature_length, WORD_VEC_LENGTH))
 
     for i, word in enumerate(sentence.split()):
@@ -36,10 +36,10 @@ class Datapoint:
         values = "\n\t" + ",\n\t".join(values) + "\n"
         return type(self).__name__ + "(%s)" % values
 
-    def vector_length(self):
+    def vector_length(self) -> int:
         return sum(self.feature_lengths.values()) + len(self.feature_lengths.values()) - 1
 
-    def to_vec(self):
+    def to_vec(self) -> np.ndarray:
         datapoint = np.zeros((self.vector_length(), WORD_VEC_LENGTH))
 
         separator = np.ones(WORD_VEC_LENGTH)
@@ -69,7 +69,7 @@ class Datapoint:
 
         return datapoint
 
-    def to_be_predicted_to_vec(self):
+    def to_be_predicted_to_vec(self) -> np.ndarray:
         vector = np.zeros(NUMBER_OF_TYPES)
         vector[self.type] = 1
         return vector
@@ -93,7 +93,7 @@ class ParameterDatapoint(Datapoint):
             'comment': 'language'
         }
 
-    def datapoint_type_vector(self):
+    def datapoint_type_vector(self) -> np.ndarray:
         datapoint_type = np.zeros((1, WORD_VEC_LENGTH))
         datapoint_type[0][0] = 1
         return datapoint_type
@@ -127,13 +127,13 @@ class ReturnDatapoint(Datapoint):
             'parameter_names': 'code'
         }
 
-    def datapoint_type_vector(self):
+    def datapoint_type_vector(self) -> np.ndarray:
         datapoint_type = np.zeros((1, WORD_VEC_LENGTH))
         datapoint_type[0][1] = 1
         return datapoint_type
 
 
-def process_datapoints(filename: str, type: str, transformation: Callable[[Series], Datapoint]):
+def process_datapoints(filename: str, type: str, transformation: Callable[[Series], Datapoint]) -> None:
     print(f'Generating input vectors for {type} datapoints')
 
     df = pd.read_csv(filename)

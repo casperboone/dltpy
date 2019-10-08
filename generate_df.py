@@ -223,11 +223,11 @@ if __name__ == '__main__':
     with open(LABEL_ENCODER_PATH, 'wb') as file:
         pickle.dump(label_encoder, file)
 
-    # Drop all columns useless for the ML algorithms
-    df = df.drop(columns=['file', 'author', 'repo', 'has_type', 'arg_names', 'arg_types', 'arg_descr'])
-
     # Add argument names as a string except self
     df['arg_names_str'] = df['arg_names'].apply(lambda l: " ".join([v for v in l if v != 'self']))
+
+    # Drop all columns useless for the ML algorithms
+    df = df.drop(columns=['file', 'author', 'repo', 'has_type', 'arg_types', 'arg_descrs'])
 
     # Store the dataframes
     df.to_csv(ML_RETURN_DF_PATH, index=False)

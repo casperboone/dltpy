@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Tuple
 
 import pandas as pd
@@ -226,8 +227,11 @@ if __name__ == '__main__':
     # Add argument names as a string except self
     df['arg_names_str'] = df['arg_names'].apply(lambda l: " ".join([v for v in l if v != 'self']))
 
+    # Add return expressions as a string, replace self. and self within expressions
+    df['return_expr_str'] = df['return_expr'].apply(lambda l: " ".join([re.sub(r"self\.?", '', v) for v in l]))
+
     # Drop all columns useless for the ML algorithms
-    df = df.drop(columns=['file', 'author', 'repo', 'has_type', 'arg_names', 'arg_types', 'arg_descrs'])
+    df = df.drop(columns=['file', 'author', 'repo', 'has_type', 'arg_names', 'arg_types', 'arg_descrs', 'return_expr'])
 
     # Store the dataframes
     df.to_csv(ML_RETURN_DF_PATH, index=False)

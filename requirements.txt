@@ -1,3 +1,4 @@
+scikit-learn>=0.21.3
 nltk
 astor==0.8.0
 pandas>=0.25.1

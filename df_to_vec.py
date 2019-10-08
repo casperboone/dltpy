@@ -8,6 +8,10 @@ import os
 
 from pandas import Series
 
+OUTPUT_DIRECTORY = './output/vectors'
+PARAM_DATAPOINTS_DATAFRAME = './output/ml_inputs/_ml_param.csv'
+RETURN_DATAPOINTS_DATAFRAME = './output/ml_inputs/_ml_return.csv'
+
 VEC_LENGTH = 100
 NUMBER_OF_TYPES = 1000
 
@@ -214,28 +218,26 @@ def process_datapoints(filename: str, type: str, transformation: Callable[[Serie
     datapoints = df.apply(transformation, axis=1)
 
     datapoints_result_x = np.stack(datapoints.apply(lambda x: x.to_vec()), axis=0)
-    np.save(os.path.join(output_directory, type + '_datapoints_x'), datapoints_result_x)
+    np.save(os.path.join(OUTPUT_DIRECTORY, type + '_datapoints_x'), datapoints_result_x)
     datapoints_result_y = np.stack(datapoints.apply(lambda x: x.to_be_predicted_to_vec()), axis=0)
-    np.save(os.path.join(output_directory, type + '_datapoints_y'), datapoints_result_y)
+    np.save(os.path.join(OUTPUT_DIRECTORY, type + '_datapoints_y'), datapoints_result_y)
 
     return datapoints_result_x, datapoints_result_y
 
 
 if __name__ == '__main__':
-    output_directory = './output/vectors'
-
-    if not os.path.isdir(output_directory):
-        os.mkdir(output_directory)
+    if not os.path.isdir(OUTPUT_DIRECTORY):
+        os.mkdir(OUTPUT_DIRECTORY)
 
     # Process parameter datapoints
     param_datapoints_result_x, param_datapoints_result_y = process_datapoints(
-        './output/ml_inputs/_ml_param.csv',
+        PARAM_DATAPOINTS_DATAFRAME,
         'param',
         lambda row: ParameterDatapoint(row.arg_name, row.arg_comment, row.arg_type_enc)
     )
 
     return_datapoints_result_x, return_datapoints_result_y = process_datapoints(
-        './output/ml_inputs/_ml_return.csv',
+        RETURN_DATAPOINTS_DATAFRAME,
         'return',
         lambda row: ReturnDatapoint(row['name'], row.func_descr if row.func_descr is str else row.docstring,
                                     row.return_descr, row.return_expr, row.arg_names_str, row.return_type_enc),

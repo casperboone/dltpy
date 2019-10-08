@@ -1,4 +1,5 @@
-from typing import Callable
+from abc import ABC, abstractmethod
+from typing import Callable, Dict
 
 import pandas as pd
 from gensim.models import Word2Vec
@@ -7,7 +8,7 @@ import os
 
 from pandas import Series
 
-WORD_VEC_LENGTH = 100
+VEC_LENGTH = 100
 NUMBER_OF_TYPES = 1000
 
 w2v_models = {
@@ -17,7 +18,12 @@ w2v_models = {
 
 
 def vectorize_string(sentence: str, feature_length: int, w2v_model: Word2Vec) -> np.ndarray:
-    vector = np.zeros((feature_length, WORD_VEC_LENGTH))
+    """
+    Vectorize a sentence to a multi-dimensial NumPy array
+
+    Roughly based on https://github.com/sola-da/NL2Type/blob/master/scripts/csv_to_vecs.py
+    """
+    vector = np.zeros((feature_length, VEC_LENGTH))
 
     for i, word in enumerate(sentence.split()):
         if i >= feature_length:
@@ -30,19 +36,43 @@ def vectorize_string(sentence: str, feature_length: int, w2v_model: Word2Vec) ->
     return vector
 
 
-class Datapoint:
-    def __repr__(self) -> str:
-        values = list(map(lambda kv: kv[0] + ': ' + repr(kv[1]), self.__dict__.items()))
-        values = "\n\t" + ",\n\t".join(values) + "\n"
-        return type(self).__name__ + "(%s)" % values
+class Datapoint(ABC):
+    """
+    Abstract class to represent a datapoint
+    """
+
+    @property
+    @abstractmethod
+    def feature_lengths(self) -> Dict[str, int]:
+        """
+        The lengths (number of vectors) of the features
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def feature_types(self) -> Dict[str, str]:
+        """
+        The types (datapoint_type, code or language) of the features
+        """
+        pass
 
     def vector_length(self) -> int:
+        """
+        The length of the whole vector for this datapoint
+        """
         return sum(self.feature_lengths.values()) + len(self.feature_lengths.values()) - 1
 
     def to_vec(self) -> np.ndarray:
-        datapoint = np.zeros((self.vector_length(), WORD_VEC_LENGTH))
+        """
+        The vector for this datapoint
 
-        separator = np.ones(WORD_VEC_LENGTH)
+        The vector contains all the features specified in the subclass. Natural language features are converted to
+        vectors using the word2vec models.
+        """
+        datapoint = np.zeros((self.vector_length(), VEC_LENGTH))
+
+        separator = np.ones(VEC_LENGTH)
 
         position = 0
         for feature, feature_length in self.feature_lengths.items():
@@ -70,36 +100,77 @@ class Datapoint:
         return datapoint
 
     def to_be_predicted_to_vec(self) -> np.ndarray:
+        """
+        A vector representation of what needs to be predicted, in this case the type
+        """
         vector = np.zeros(NUMBER_OF_TYPES)
         vector[self.type] = 1
         return vector
 
+    @abstractmethod
+    def datapoint_type_vector(self) -> np.ndarray:
+        """
+        The vector corresponding to the type
+        """
+        pass
+
+    def __repr__(self) -> str:
+        values = list(map(lambda kv: kv[0] + ': ' + repr(kv[1]), self.__dict__.items()))
+        values = "\n\t" + ",\n\t".join(values) + "\n"
+        return type(self).__name__ + "(%s)" % values
+
 
 class ParameterDatapoint(Datapoint):
-    def __init__(self, name: str, comment: str, type: int):
-        self.name = name
-        self.comment = comment
-        self.type = type
-
-        self.feature_lengths = {
+    @property
+    def feature_lengths(self) -> Dict[str, int]:
+        return {
             'datapoint_type': 1,
             'name': 6,
             'comment': 12
         }
 
-        self.feature_types = {
+    @property
+    def feature_types(self) -> Dict[str, str]:
+        return {
             'datapoint_type': 'datapoint_type',
             'name': 'code',
             'comment': 'language'
         }
 
+    def __init__(self, name: str, comment: str, type: int):
+        self.name = name
+        self.comment = comment
+        self.type = type
+
     def datapoint_type_vector(self) -> np.ndarray:
-        datapoint_type = np.zeros((1, WORD_VEC_LENGTH))
+        datapoint_type = np.zeros((1, VEC_LENGTH))
         datapoint_type[0][0] = 1
         return datapoint_type
 
 
 class ReturnDatapoint(Datapoint):
+    @property
+    def feature_lengths(self) -> Dict[str, int]:
+        return {
+            'datapoint_type': 1,
+            'name': 6,
+            'function_comment': 12,
+            'return_comment': 10,
+            'return_expressions': 10,  # check what this should be
+            'parameter_names': 10  # check what this should be
+        }
+
+    @property
+    def feature_types(self) -> Dict[str, str]:
+        return {
+            'datapoint_type': 'datapoint_type',
+            'name': 'code',
+            'function_comment': 'language',
+            'return_comment': 'language',
+            'return_expressions': 'code',
+            'parameter_names': 'code'
+        }
+
     def __init__(self, name: str, function_comment: str, return_comment: str, return_expressions: list,
                  parameter_names: list, type: int):
         self.name = name
@@ -109,31 +180,16 @@ class ReturnDatapoint(Datapoint):
         self.parameter_names = parameter_names
         self.type = type
 
-        self.feature_lengths = {
-            'datapoint_type': 1,
-            'name': 6,
-            'function_comment': 12,
-            'return_comment': 10,
-            'return_expressions': 10,  # check what this should be
-            'parameter_names': 10  # check what this should be
-        }
-
-        self.feature_types = {
-            'datapoint_type': 'datapoint_type',
-            'name': 'code',
-            'function_comment': 'language',
-            'return_comment': 'language',
-            'return_expressions': 'code',
-            'parameter_names': 'code'
-        }
-
     def datapoint_type_vector(self) -> np.ndarray:
-        datapoint_type = np.zeros((1, WORD_VEC_LENGTH))
+        datapoint_type = np.zeros((1, VEC_LENGTH))
         datapoint_type[0][1] = 1
         return datapoint_type
 
 
 def process_datapoints(filename: str, type: str, transformation: Callable[[Series], Datapoint]) -> None:
+    """
+    Read dataframe, generate vectors for each row, and write them as multidimensional array to disk
+    """
     print(f'Generating input vectors for {type} datapoints')
 
     df = pd.read_csv(filename)

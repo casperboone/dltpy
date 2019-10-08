@@ -191,7 +191,7 @@ class ReturnDatapoint(Datapoint):
         self.name = name
         self.function_comment = function_comment
         self.return_comment = return_comment
-        self.return_expressions = ' '.join(return_expressions)  ### SHOULD BE DONE IN GENERATE DF
+        self.return_expressions = return_expressions
         self.parameter_names = parameter_names
         self.type = type
 
@@ -209,11 +209,6 @@ def process_datapoints(filename: str, type: str, transformation: Callable[[Serie
     print(f'Generating input vectors for {type} datapoints')
 
     df = pd.read_csv(filename)
-
-    df = df[:2]
-
-    if type == 'return':
-        df['return_expr'] = df['return_expr'].apply(lambda x: eval(x))  ### SHOULD BE DONE IN GENERATE DF
 
     datapoints = df.apply(transformation, axis=1)
 
@@ -240,7 +235,7 @@ if __name__ == '__main__':
         RETURN_DATAPOINTS_DATAFRAME,
         'return',
         lambda row: ReturnDatapoint(row['name'], row.func_descr if row.func_descr is str else row.docstring,
-                                    row.return_descr, row.return_expr, row.arg_names_str, row.return_type_enc),
+                                    row.return_descr, row.return_expr_str, row.arg_names_str, row.return_type_enc),
     )
 
     assert param_datapoints_result_x.shape[1] == return_datapoints_result_x.shape[1], \

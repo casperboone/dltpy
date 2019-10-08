@@ -19,23 +19,19 @@ w2v_models = {
 }
 
 
-# NL2Type code
-def vectorize_string(text, feature_length, w2v_model):
-    text_vec = np.zeros((feature_length, WORD_VEC_LENGTH))
-    if text == 'unknown':
-        return text_vec
-    count = 0
-    for word in text.split():
-        if count >= feature_length:
-            return text_vec
+def vectorize_string(sentence, feature_length, w2v_model):
+    vector = np.zeros((feature_length, WORD_VEC_LENGTH))
+
+    for i, word in enumerate(sentence.split()):
+        if i >= feature_length:
+            break
         try:
-            text_vec[count] = w2v_model.wv[word]
+            vector[i] = w2v_model.wv[word]
         except KeyError:
             pass
-        count += 1
 
-    return text_vec
-# /NL2Type code
+    return vector
+
 
 class Datapoint:
     def __repr__(self) -> str:
@@ -144,6 +140,8 @@ def process_datapoints(filename: str, type: str, transformation: Callable[[Serie
     print(f'Generating input vectors for {type} datapoints')
 
     df = pd.read_csv(filename)
+
+    df = df[:2]
 
     if type == 'return':
         df['return_expr'] = df['return_expr'].apply(lambda x: eval(x))  ### SHOULD BE DONE IN GENERATE DF

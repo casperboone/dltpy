@@ -25,7 +25,7 @@ CACHE = True
 def list_files(directory: str, full=True) -> list:
     """
     List all files in the given directory.
-    
+
     :param directory: directory to search
     :param full: whether to return the full path
     :return: list of paths
@@ -224,7 +224,7 @@ if __name__ == '__main__':
         pickle.dump(label_encoder, file)
 
     # Drop all columns useless for the ML algorithms
-    df = df.drop(columns=['file', 'author', 'repo', 'has_type', 'arg_names', 'arg_types', 'arg_descr'])
+    df = df.drop(columns=['file', 'author', 'repo', 'has_type', 'arg_names', 'arg_types', 'arg_descrs'])
 
     # Add argument names as a string except self
     df['arg_names_str'] = df['arg_names'].apply(lambda l: " ".join([v for v in l if v != 'self']))

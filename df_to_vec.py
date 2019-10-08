@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Callable, Dict
+from typing import Callable, Dict, Tuple
 
 import pandas as pd
 from gensim.models import Word2Vec
@@ -92,6 +92,11 @@ class Datapoint(ABC):
                     datapoint[position] = word
                     position += 1
 
+            if self.feature_types[feature] == 'padding':
+                for i in range(0, feature_length):
+                    datapoint[position] = np.zeros(VEC_LENGTH)
+                    position += 1
+
             # Add separator after each feature
             if position < len(datapoint):
                 datapoint[position] = separator
@@ -126,7 +131,10 @@ class ParameterDatapoint(Datapoint):
         return {
             'datapoint_type': 1,
             'name': 6,
-            'comment': 12
+            'comment': 12,
+            'padding_0': 10,
+            'padding_1': 10,  # check what this should be
+            'padding_2': 10  # check what this should be
         }
 
     @property
@@ -134,7 +142,10 @@ class ParameterDatapoint(Datapoint):
         return {
             'datapoint_type': 'datapoint_type',
             'name': 'code',
-            'comment': 'language'
+            'comment': 'language',
+            'padding_0': 'padding',
+            'padding_1': 'padding',
+            'padding_2': 'padding'
         }
 
     def __init__(self, name: str, comment: str, type: int):
@@ -186,7 +197,8 @@ class ReturnDatapoint(Datapoint):
         return datapoint_type
 
 
-def process_datapoints(filename: str, type: str, transformation: Callable[[Series], Datapoint]) -> None:
+def process_datapoints(filename: str, type: str, transformation: Callable[[Series], Datapoint]) -> \
+        Tuple[np.ndarray, np.ndarray]:
     """
     Read dataframe, generate vectors for each row, and write them as multidimensional array to disk
     """
@@ -206,6 +218,8 @@ def process_datapoints(filename: str, type: str, transformation: Callable[[Serie
     datapoints_result_y = np.stack(datapoints.apply(lambda x: x.to_be_predicted_to_vec()), axis=0)
     np.save(os.path.join(output_directory, type + '_datapoints_y'), datapoints_result_y)
 
+    return datapoints_result_x, datapoints_result_y
+
 
 if __name__ == '__main__':
     output_directory = './output/vectors'
@@ -214,17 +228,18 @@ if __name__ == '__main__':
         os.mkdir(output_directory)
 
     # Process parameter datapoints
-    process_datapoints(
+    param_datapoints_result_x, param_datapoints_result_y = process_datapoints(
         './output/ml_inputs/_ml_param.csv',
         'param',
         lambda row: ParameterDatapoint(row.arg_name, row.arg_comment, row.arg_type_enc)
     )
 
-    process_datapoints(
+    return_datapoints_result_x, return_datapoints_result_y = process_datapoints(
         './output/ml_inputs/_ml_return.csv',
         'return',
         lambda row: ReturnDatapoint(row['name'], row.func_descr if row.func_descr is str else row.docstring,
                                     row.return_descr, row.return_expr, row.arg_names_str, row.return_type_enc),
     )
 
-# TO CHECK: param/return datapoints same length?
+    assert param_datapoints_result_x.shape[1] == return_datapoints_result_x.shape[1], \
+        "Param datapoints and return datapoints must have the same length, thus padding must be added."

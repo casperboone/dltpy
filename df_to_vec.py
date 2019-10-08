@@ -1,6 +1,3 @@
-import random
-import sys
-import time
 from typing import Callable
 
 import pandas as pd
@@ -40,7 +37,7 @@ class Datapoint:
         return type(self).__name__ + "(%s)" % values
 
     def vector_length(self):
-        return sum(self.features.values()) + len(self.features.values()) - 1
+        return sum(self.feature_lengths.values()) + len(self.feature_lengths.values()) - 1
 
     def to_vec(self):
         datapoint = np.zeros((self.vector_length(), WORD_VEC_LENGTH))
@@ -48,7 +45,7 @@ class Datapoint:
         separator = np.ones(WORD_VEC_LENGTH)
 
         position = 0
-        for feature, feature_length in self.features.items():
+        for feature, feature_length in self.feature_lengths.items():
 
             if self.feature_types[feature] == 'datapoint_type':
                 datapoint[position] = self.datapoint_type_vector()
@@ -84,7 +81,7 @@ class ParameterDatapoint(Datapoint):
         self.comment = comment
         self.type = type
 
-        self.features = {
+        self.feature_lengths = {
             'datapoint_type': 1,
             'name': 6,
             'comment': 12
@@ -112,7 +109,7 @@ class ReturnDatapoint(Datapoint):
         self.parameter_names = parameter_names
         self.type = type
 
-        self.features = {
+        self.feature_lengths = {
             'datapoint_type': 1,
             'name': 6,
             'function_comment': 12,

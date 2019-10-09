@@ -16,8 +16,8 @@ VEC_LENGTH = 100
 NUMBER_OF_TYPES = 1000
 
 w2v_models = {
-    'code': Word2Vec.load('resources/word2vec_model_code.bin'),
-    'language': Word2Vec.load('resources/word2vec_model_language.bin')
+    'code': Word2Vec.load('resources/w2v_code_model.bin'),
+    'language': Word2Vec.load('resources/w2v_language_model.bin')
 }
 
 
@@ -135,10 +135,10 @@ class ParameterDatapoint(Datapoint):
         return {
             'datapoint_type': 1,
             'name': 6,
-            'comment': 12,
-            'padding_0': 10,
-            'padding_1': 10,  # check what this should be
-            'padding_2': 10  # check what this should be
+            'comment': 15,
+            'padding_0': 6,
+            'padding_1': 12,
+            'padding_2': 10
         }
 
     @property
@@ -169,10 +169,10 @@ class ReturnDatapoint(Datapoint):
         return {
             'datapoint_type': 1,
             'name': 6,
-            'function_comment': 12,
-            'return_comment': 10,
-            'return_expressions': 10,  # check what this should be
-            'parameter_names': 10  # check what this should be
+            'function_comment': 15,
+            'return_comment': 6,
+            'return_expressions': 12,
+            'parameter_names': 10
         }
 
     @property

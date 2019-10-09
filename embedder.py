@@ -14,7 +14,7 @@ logging.basicConfig(format="%(levelname)s - %(asctime)s: %(message)s", datefmt= 
 OUTPUT_DIRECTORY = os.path.join('./output')
 PARAM_DF_PATH = os.path.join(OUTPUT_DIRECTORY, 'ml_inputs', '_ml_param.csv')
 RETURN_DF_PATH = os.path.join(OUTPUT_DIRECTORY, 'ml_inputs', '_ml_return.csv')
-OUTPUT_EMBEDDINGS_DIRECTORY = os.path.join('./output', 'embeddings')
+OUTPUT_EMBEDDINGS_DIRECTORY = os.path.join('./resources')
 LANGUAGE_EMBEDDING_OUTPUT_PATH = os.path.join(OUTPUT_EMBEDDINGS_DIRECTORY, 'w2v_language_model.bin')
 CODE_EMBEDDING_OUTPUT_PATH = os.path.join(OUTPUT_EMBEDDINGS_DIRECTORY, 'w2v_code_model.bin')
 

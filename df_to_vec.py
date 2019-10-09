@@ -130,6 +130,9 @@ class Datapoint(ABC):
 
 
 class ParameterDatapoint(Datapoint):
+    """
+    A parameter data point representing the tuple (n_p_i, c_p_i)
+    """
     @property
     def feature_lengths(self) -> Dict[str, int]:
         return {
@@ -164,6 +167,9 @@ class ParameterDatapoint(Datapoint):
 
 
 class ReturnDatapoint(Datapoint):
+    """
+    A return data point representing the tuple (n_f, c_f, r_c, r_e, n_p)
+    """
     @property
     def feature_lengths(self) -> Dict[str, int]:
         return {

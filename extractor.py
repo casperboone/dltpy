@@ -138,10 +138,18 @@ class Extractor():
                      "return_descr": None}
 
         if parsed_docstring.returns is not None:
-            descr_map["return_descr"] = parsed_docstring.returns.description
+            return_description_sentence = parsed_docstring.returns.description.split(". ")[0]
+            if len(return_description_sentence) != len(parsed_docstring.returns.description):
+                return_description_sentence = parsed_docstring.returns.description.split("\n")[0]
+
+            descr_map["return_descr"] = return_description_sentence
 
         for param in parsed_docstring.params:
-            descr_map["params"][param.arg_name] = param.description
+            param_description_sentence = param.description.split(". ")[0]
+            if len(param_description_sentence) != len(param.description):
+                param_description_sentence = param.description.split("\n")[0]
+
+            descr_map["params"][param.arg_name] = param_description_sentence
 
         return descr_map
 
@@ -157,6 +165,10 @@ class Extractor():
         add_double_colon: bool = False
         active_keyword: bool = False
         end_docstring: bool = False
+
+        #TODO cut sentence when it ends with a period (and check if EOL comes after the period
+        #TODO cut on an empty newline
+
 
         preparsed_docstring: str = ""
         lines: List[str] = docstring.split("\n")

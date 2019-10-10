@@ -166,25 +166,24 @@ class Extractor():
         active_keyword: bool = False
         end_docstring: bool = False
 
-        #TODO cut sentence when it ends with a period (and check if EOL comes after the period
-        #TODO cut on an empty newline
-
-
         preparsed_docstring: str = ""
         lines: List[str] = docstring.split("\n")
         for line in lines:
             result = re.match(dash_line_matcher, line)
             if result is not None:
+                #Remove a dashed line
                 preparsed_docstring = preparsed_docstring[:-1] + ":" + "\n"
                 convert_docstring = True
             else:
                 for keyword in param_keywords:
+                    #Add indentation of a param keyword is found
                     if keyword in line:
                         add_indent = True
                         active_keyword = True
                         break
                 if not active_keyword:
                     for keyword in return_keywords:
+                        # Add indentation and ':' if a return keyword is found
                         if keyword in line:
                             add_indent = True
                             add_double_colon = True
@@ -192,6 +191,7 @@ class Extractor():
                             break
                 if not add_double_colon:
                     for keyword in break_keywords:
+                        #Stop processing docstring any further if a break keyword is found
                         if keyword in line:
                             end_docstring = True
                             break

@@ -1,13 +1,8 @@
 from gensim.models import Word2Vec
 import pandas as pd
 import multiprocessing
-import itertools
 import os
-from typing import Iterator, List, Callable
-
 from time import time
-import logging  # Setting up the loggings to monitor gensim
-logging.basicConfig(format="%(levelname)s - %(asctime)s: %(message)s", datefmt= '%H:%M:%S', level=logging.INFO)
 
 
 #CONFIG
@@ -74,7 +69,7 @@ class Embedder:
         self.param_df = param_df
         self.return_df = return_df
 
-    def trainModel(self, corpus_iterator: HelperIterator, model_path_name: str) -> None:
+    def train_model(self, corpus_iterator: HelperIterator, model_path_name: str) -> None:
         """
         Train a Word2Vec model and save the output to a file.
         :param corpus_iterator: class that can provide an iterator that goes through the corpus
@@ -84,18 +79,13 @@ class Embedder:
         cores = multiprocessing.cpu_count()
 
         w2v_model = Word2Vec(min_count=5,           #Specified in NL2Type
-                             #window=2,
+                             window=5,              #Specified in NL2Type
                              size=100,              #Specified in NL2Type
-                             #sample=6e-5,
-                             #alpha=0.03,
-                             #min_alpha=0.0007,
-                             #negative=20,
                              workers=cores-1)
 
         t = time()
 
-        w2v_model.build_vocab(sentences=corpus_iterator,
-                              progress_per=10000)
+        w2v_model.build_vocab(sentences=corpus_iterator)
 
         print('Time to build vocab: {} mins'.format(round((time() - t) / 60, 2)))
 
@@ -110,17 +100,17 @@ class Embedder:
 
         w2v_model.save(model_path_name)
 
-    def trainLanguageModel(self) -> None:
+    def train_language_model(self) -> None:
         """
         Train a Word2Vec model for the descriptions and save to file.
         """
-        self.trainModel(LanguageIterator(self.param_df, self.return_df), LANGUAGE_EMBEDDING_OUTPUT_PATH)
+        self.train_model(LanguageIterator(self.param_df, self.return_df), LANGUAGE_EMBEDDING_OUTPUT_PATH)
 
-    def trainCodeModel(self) -> None:
+    def train_code_model(self) -> None:
         """
         Train a Word2Vec model for the code expressions and save to file.
         """
-        self.trainModel(CodeIterator(self.param_df, self.return_df), CODE_EMBEDDING_OUTPUT_PATH)
+        self.train_model(CodeIterator(self.param_df, self.return_df), CODE_EMBEDDING_OUTPUT_PATH)
 
 
 if __name__ == '__main__':
@@ -134,8 +124,8 @@ if __name__ == '__main__':
         os.mkdir(OUTPUT_EMBEDDINGS_DIRECTORY)
 
     embedder = Embedder(param_df, return_df)
-    embedder.trainCodeModel()
-    embedder.trainLanguageModel()
+    embedder.train_code_model()
+    embedder.train_language_model()
 
     w2v_language_model = Word2Vec.load(LANGUAGE_EMBEDDING_OUTPUT_PATH)
     w2v_code_model = Word2Vec.load(CODE_EMBEDDING_OUTPUT_PATH)

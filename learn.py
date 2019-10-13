@@ -8,10 +8,12 @@ import torchvision
 import torchvision.transforms as transforms
 import numpy as np
 import torch.nn.functional as F
+from sklearn.metrics import classification_report
+
 
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(device)
+
 
 # Bidirectional recurrent neural network (many-to-one)
 class BiRNN(nn.Module):
@@ -110,18 +112,16 @@ def learn():
     # Test the model
     # TODO: this is temporary
     with torch.no_grad():
-        correct = 0
-        total = 0
+        predicted = []
+        actual = []
         for datapoints, labels in test_loader:
             datapoints = datapoints.to(device)
-            labels = labels.to(device)
             outputs = model(datapoints)
-            predicted = np.argmax(outputs.data.cpu(), axis=1)
-            actual = labels.data.cpu()
-            total += labels.size(0)
-            correct += (predicted == actual).sum(dim=0)
-
-        print('Test Accuracy of the model: {} %'.format(100.0 * float(correct) / float(total)))
+            predicted.append(np.argmax(outputs.data.cpu().numpy(), axis=1))
+            actual.append(labels.data.cpu().numpy())
+        predicted = np.hstack(np.array(predicted))
+        actual = np.hstack(np.array(actual))
+        print(classification_report(actual, predicted))
 
 
 learn()

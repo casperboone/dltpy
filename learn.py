@@ -7,10 +7,14 @@ import torch
 import torch.nn as nn
 from sklearn.metrics import classification_report
 from torch.utils import data
-from torch.utils.data import DataLoader, TensorDataset
-import torch.nn.functional as F
+from torch.utils.data import DataLoader
 
 MODEL_DIR = "./output/models/"
+RETURN_DATAPOINTS_X = "./output/vectors/return_datapoints_x.npy"
+RETURN_DATAPOINTS_Y = "./output/vectors/return_datapoints_y.npy"
+PARAM_DATAPOINTS_X = "./output/vectors/param_datapoints_x.npy"
+PARAM_DATAPOINTS_Y = "./output/vectors/param_datapoints_y.npy"
+
 
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -44,7 +48,7 @@ class BiRNN(nn.Module):
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers,
                             batch_first=True, bidirectional=True)
 
-        self.linear = nn.Linear(hidden_size*2, 1000)
+        self.linear = nn.Linear(hidden_size * 2, 1000)
 
     def forward(self, x):
         x = self.dropout(x)
@@ -62,26 +66,13 @@ class BiRNN(nn.Module):
         return x
 
 
-def load_dataset(batch_size):
-    # X = np.concatenate((
-    #     # np.load("./output/vectors/param_datapoints_x.npy"),
-    #     np.load("./output/vectors/return_datapoints_x.npy")
-    # ))
-    #
-    # y = np.concatenate((
-    #     # np.argmax(np.load("./output/vectors/param_datapoints_y.npy"), axis=1),
-    #     np.argmax(np.load("./output/vectors/return_datapoints_y.npy"), axis=1)
-    # ))
-    #
-    X = np.load("./output/vectors/return_datapoints_x.npy")[0:10000]
-    y = np.argmax(np.load("./output/vectors/return_datapoints_y.npy"), axis=1)[0:10000]
-
-    X = torch.from_numpy(X).float()
-    y = torch.from_numpy(y).long()
+def load_dataset(filename_X, filename_y, batch_size, limit=None, split=0.8):
+    X = torch.from_numpy(np.load(filename_X)[0:limit]).float()
+    y = torch.from_numpy(np.argmax(np.load(filename_y), axis=1)[0:limit]).long()
 
     train_data = torch.utils.data.TensorDataset(X, y)
 
-    train_size = int(0.80 * len(train_data))
+    train_size = int(split * len(train_data))
     test_size = len(train_data) - train_size
 
     train_dataset, test_dataset = torch.utils.data.random_split(train_data, [train_size, test_size])
@@ -98,12 +89,11 @@ def make_batch_prediction(model, X):
         # Compute model output
         outputs = model(X)
         # Max for each label
-        labels = torch.argmax(F.softmax(outputs), 1)
+        labels = torch.argmax(outputs, 1)
         return outputs, labels
 
 
 def evaluate(model: nn.Module, data_loader: DataLoader):
-    batch_count = len(data_loader)
     true_labels = []
     predicted_labels = []
 
@@ -132,7 +122,6 @@ def train_loop(model: nn.Module, data_loader: DataLoader, model_config: dict, mo
         for batch_i, (batch, labels) in enumerate(data_loader):
             batch = batch.to(device)
             labels = labels.to(device)
-            F.cross_entropy()
             # Forward pass
             optimizer.zero_grad()
             outputs = model(batch)
@@ -173,13 +162,13 @@ if __name__ == '__main__':
 
     # Load data
     print("-- Loading data")
-    train_loader, test_loader = load_dataset(model_config['batch_size'])
+    train_loader, test_loader = load_dataset(RETURN_DATAPOINTS_X, RETURN_DATAPOINTS_Y, model_config['batch_size'], limit=1000, split=0.8)
 
     # Start training
-    # train_loop(model, train_loader, model_config, model_store_dir=str(int(time.time())))
+    train_loop(model, train_loader, model_config, model_store_dir=str(int(time.time())))
 
-    print("-- Loading model")
-    model = load_model('1571306801/model_BiRNN_e_9_l_1.8179169893.h5')
+    # print("-- Loading model")
+    # model = load_model('1571306801/model_BiRNN_e_9_l_1.8179169893.h5')
 
     # Evaluate model performance
     y_true, y_pred = evaluate(model, test_loader)

@@ -6,3 +6,4 @@ gitpython
 docstring-parser==0.3
 joblib==0.13.2
 tqdm==4.31.1
+gensim==3.8.0

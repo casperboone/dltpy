@@ -108,11 +108,14 @@ def process_project(i, project):
 
         project['files'] = []
 
-        print(f'Cloning for {project_id}...')
-        cloned_project_directory = cloner.clone(project["author"], project["repo"])
+        if 'repoUrl' in project:
+            print(f'Cloning for {project_id}...')
+            raw_project_directory = cloner.clone(project["author"], project["repo"])
+        else:
+            raw_project_directory = project["directory"]
 
         print(f'Filtering for {project_id}...')
-        filtered_project_directory = project_filter.filter_directory(cloned_project_directory)
+        filtered_project_directory = project_filter.filter_directory(raw_project_directory)
 
         print(f'Extracting for {project_id}...')
         extracted_functions = {}
@@ -122,6 +125,8 @@ def process_project(i, project):
                 extracted_functions[filename] = functions
             except ParseError:
                 print(f"Could not parse file {filename}")
+            except UnicodeDecodeError:
+                print(f"Could not read file {filename}")
 
         print(f'Preprocessing for {project_id}...')
         preprocessed_functions = {}
@@ -131,8 +136,9 @@ def process_project(i, project):
         project['files'] = [{'filename': filename, 'functions': functions}
                             for filename, functions in preprocessed_functions.items()]
 
-        print(f'Remove project files for {project_id}...')
-        shutil.rmtree(cloned_project_directory)
+        if 'repoUrl' in project:
+            print(f'Remove project files for {project_id}...')
+            shutil.rmtree(raw_project_directory)
     except KeyboardInterrupt:
         quit(1)
     except Exception:

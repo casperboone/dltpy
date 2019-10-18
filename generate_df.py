@@ -132,7 +132,7 @@ def gen_argument_df(df: pd.DataFrame) -> pd.DataFrame:
                 if arg_descr == '':
                     continue
 
-                arguments.append([row['name'], arg_name, arg_type, row['arg_descrs'][p_i]])
+                arguments.append([row['name'], arg_name, arg_type, arg_descr])
 
     return pd.DataFrame(arguments, columns=['func_name', 'arg_name', 'arg_type', 'arg_comment'])
 

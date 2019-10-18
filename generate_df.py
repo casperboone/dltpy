@@ -84,7 +84,7 @@ def format_df(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def filter_functions(df: pd.DataFrame) -> pd.DataFrame:
+def filter_return_datapoints(df: pd.DataFrame) -> pd.DataFrame:
     """
     Filters functions which are note useful.
     :param df: dataframe to use
@@ -94,18 +94,39 @@ def filter_functions(df: pd.DataFrame) -> pd.DataFrame:
     df = df.dropna(subset=['return_type'])
     print(f"Functions after dropping on return type {len(df)}")
 
-    print(f"Functions before dropping nan return type {len(df)}")
-    to_drop = np.invert((df['return_type'] == 'nan') | (df['return_type'] == 'None'))
+    print(f"Functions before dropping nan, None, Any return type {len(df)}")
+    to_drop = np.invert((df['return_type'] == 'nan') | (df['return_type'] == 'None') | (df['return_type'] == 'Any'))
     df = df[to_drop]
     print(f"Functions after dropping nan return type {len(df)}")
 
-    print(f"Functions before dropping on empty docstring {len(df)}")
-    df = df.dropna(subset=['docstring'])
-    print(f"Functions after dropping on empty docstring {len(df)}")
+    print(f"Functions before dropping on empty docstring, function comment and return comment {len(df)}")
+    df = df.dropna(subset=['docstring', 'func_descr', 'return_descr'])
+    print(f"Functions after dropping on empty docstring, function comment and return comment {len(df)}")
 
     print(f"Functions before dropping on empty return expression {len(df)}")
     df = df[df['return_expr'].apply(lambda x: len(eval(x))) > 0]
     print(f"Functions after dropping on empty return expression {len(df)}")
+
+    return df
+
+
+def filter_parameter_datapoints(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Filters functions which are note useful.
+    :param df: dataframe to use
+    :return: filtered dataframe
+    """
+    print(f"Parameters before dropping on empty type {len(df)}")
+    df = df[df['arg_type'] != '']
+    print(f"Parameters after dropping on empty type {len(df)}")
+
+    print(f"Parameters before dropping on Any / None type {len(df)}")
+    df = df[df['arg_type'] != 'Any' | df['arg_type'] != 'None']
+    print(f"Parameters after dropping on Any / None type {len(df)}")
+
+    print(f"Parameters before dropping on empty comment {len(df)}")
+    df = df.dropna(subset=['arg_comment'])
+    print(f"Parameters after dropping on empty comment {len(df)}")
 
     return df
 
@@ -174,14 +195,9 @@ if __name__ == '__main__':
     if not os.path.exists(config.ML_INPUTS_PATH):
         os.makedirs(config.ML_INPUTS_PATH)
 
-    if CACHE and os.path.exists(config.FILTERED_DATA_FILE):
-        print("Loading filtered cached copy")
-        df = pd.read_csv(config.FILTERED_DATA_FILE)
-    elif CACHE and os.path.exists(config.DATA_FILE):
+    if CACHE and os.path.exists(config.DATA_FILE):
         print("Loading cached copy")
-        df = pd.read_csv(config.DATA_FILE)
-        df = filter_functions(df)
-        df.to_csv(config.FILTERED_DATA_FILE, index=False)
+        df = pd.read_csv(config.FILTERED_DATA_FILE)
     else:
         DATA_FILES = list_files(config.DATA_FILES_DIR)
         print("Found %d datafiles" % len(DATA_FILES))
@@ -191,22 +207,21 @@ if __name__ == '__main__':
         print("Dataframe loaded writing it to CSV")
         df.to_csv(config.DATA_FILE, index=False)
 
-        print("Filtering dataframe")
-        df = filter_functions(df)
-
-        print("Dataframe filtered writing cached version to CSV")
-        df.to_csv(config.FILTERED_DATA_FILE, index=False)
-
     # Format dataframe
-    print("Formatting dataframe")
+    print("Formatting return datapoints dataframe")
     df = format_df(df)
 
     # Split df
     print("Extracting arguments")
     df_params = gen_argument_df(df)
 
-    print(f"Extracted a total of {len(df_params)} arguments with type {sum(df_params['arg_type'] != '')}.")
-    df_params = df_params[df_params['arg_type'] != '']
+    # Filter return datapoints
+    print("Filter return datapoints")
+    df = filter_return_datapoints(df)
+
+    # Filter parameter datapoints
+    print("Filter parameter datapoints")
+    df = filter_parameter_datapoints(df)
 
     # Encode types as int
     print("Encoding types")

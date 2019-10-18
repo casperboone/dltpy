@@ -10,9 +10,12 @@ from pandas import DataFrame
 from sklearn import preprocessing
 from sklearn.preprocessing import LabelEncoder
 
+from ast import literal_eval
+
 import config
 
 # LOCAL CONFIG
+TYPES_FILE = os.path.join(config.ML_INPUTS_PATH, "_most_frequent_types.csv")
 CACHE = True
 
 def list_files(directory: str, full=True) -> list:
@@ -76,10 +79,10 @@ def format_df(df: pd.DataFrame) -> pd.DataFrame:
     :type df: dataframe to use
     :returns: final dataframe
     """
-    df['arg_names'] = df['arg_names'].apply(lambda x: eval(x))
-    df['arg_types'] = df['arg_types'].apply(lambda x: eval(x))
-    df['arg_descrs'] = df['arg_descrs'].apply(lambda x: eval(x))
-    df['return_expr'] = df['return_expr'].apply(lambda x: eval(x))
+    df['arg_names'] = df['arg_names'].apply(lambda x: literal_eval(x))
+    df['arg_types'] = df['arg_types'].apply(lambda x: literal_eval(x))
+    df['arg_descrs'] = df['arg_descrs'].apply(lambda x: literal_eval(x))
+    df['return_expr'] = df['return_expr'].apply(lambda x: literal_eval(x))
 
     return df
 
@@ -104,29 +107,8 @@ def filter_return_datapoints(df: pd.DataFrame) -> pd.DataFrame:
     print(f"Functions after dropping on empty docstring, function comment and return comment {len(df)}")
 
     print(f"Functions before dropping on empty return expression {len(df)}")
-    df = df[df['return_expr'].apply(lambda x: len(eval(x))) > 0]
+    df = df[df['return_expr'].apply(lambda x: len(literal_eval(x))) > 0]
     print(f"Functions after dropping on empty return expression {len(df)}")
-
-    return df
-
-
-def filter_parameter_datapoints(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Filters functions which are note useful.
-    :param df: dataframe to use
-    :return: filtered dataframe
-    """
-    print(f"Parameters before dropping on empty type {len(df)}")
-    df = df[df['arg_type'] != '']
-    print(f"Parameters after dropping on empty type {len(df)}")
-
-    print(f"Parameters before dropping on Any / None type {len(df)}")
-    df = df[df['arg_type'] != 'Any' | df['arg_type'] != 'None']
-    print(f"Parameters after dropping on Any / None type {len(df)}")
-
-    print(f"Parameters before dropping on empty comment {len(df)}")
-    df = df.dropna(subset=['arg_comment'])
-    print(f"Parameters after dropping on empty comment {len(df)}")
 
     return df
 
@@ -139,9 +121,18 @@ def gen_argument_df(df: pd.DataFrame) -> pd.DataFrame:
     """
     arguments = []
     for i, row in df.iterrows():
-        for p_i, arg_name in enumerate(row['arg_names']):
+        if i % 1000 == 0:
+            print(float(i)/len(df))
+        for p_i, arg_name in enumerate(literal_eval(row['arg_names'])):
             if arg_name != 'self':
-                arguments.append([row['name'], arg_name, row['arg_types'][p_i], row['arg_descrs'][p_i]])
+                arg_type = literal_eval(row['arg_types'])[p_i]
+                if arg_type == '' or arg_type == 'Any' or arg_type == 'None':
+                    continue
+                arg_descr = literal_eval(row['arg_descrs'])[p_i]
+                if arg_descr == '':
+                    continue
+
+                arguments.append([row['name'], arg_name, arg_type, row['arg_descrs'][p_i]])
 
     return pd.DataFrame(arguments, columns=['func_name', 'arg_name', 'arg_type', 'arg_comment'])
 
@@ -167,6 +158,7 @@ def encode_types(df: pd.DataFrame, df_args: pd.DataFrame, threshold: int = 999) 
 
     # keep the threshold most common types rest is mapped to 'other'
     common_types = [unique[i] for i in np.argsort(counts)[::-1][:threshold]]
+    common_types_counts = [counts[i] for i in np.argsort(counts)[::-1][:threshold]]
 
     print("Remapping uncommon types for functions")
     df['return_type_t'] = df['return_type'].apply(lambda x: x if x in common_types else 'other')
@@ -180,6 +172,12 @@ def encode_types(df: pd.DataFrame, df_args: pd.DataFrame, threshold: int = 999) 
     arg_types = df_args['arg_type_t'].values
     all_types = np.concatenate((return_types, arg_types), axis=0)
     le.fit(all_types)
+
+    print("Store type mapping with counts")
+    pd.DataFrame(
+        list(zip(le.transform(common_types), common_types, common_types_counts)),
+        columns=['enc', 'type', 'count']
+    ).to_csv(TYPES_FILE)
 
     # transform all type
     print("Transforming return types")
@@ -197,7 +195,7 @@ if __name__ == '__main__':
 
     if CACHE and os.path.exists(config.DATA_FILE):
         print("Loading cached copy")
-        df = pd.read_csv(config.FILTERED_DATA_FILE)
+        df = pd.read_csv(config.DATA_FILE)
     else:
         DATA_FILES = list_files(config.DATA_FILES_DIR)
         print("Found %d datafiles" % len(DATA_FILES))
@@ -207,10 +205,6 @@ if __name__ == '__main__':
         print("Dataframe loaded writing it to CSV")
         df.to_csv(config.DATA_FILE, index=False)
 
-    # Format dataframe
-    print("Formatting return datapoints dataframe")
-    df = format_df(df)
-
     # Split df
     print("Extracting arguments")
     df_params = gen_argument_df(df)
@@ -219,9 +213,9 @@ if __name__ == '__main__':
     print("Filter return datapoints")
     df = filter_return_datapoints(df)
 
-    # Filter parameter datapoints
-    print("Filter parameter datapoints")
-    df = filter_parameter_datapoints(df)
+    # Format dataframe
+    print("Formatting return datapoints dataframe")
+    df = format_df(df)
 
     # Encode types as int
     print("Encoding types")

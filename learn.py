@@ -165,10 +165,12 @@ def train_loop(model: nn.Module, data_loader: DataLoader, model_config: dict, mo
     # Loss and optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=model_config['learning_rate'])
+    losses = []
 
     # Train the model
     total_step = len(data_loader)
-
+    losses = np.empty(total_step * model_config['num_epochs'])
+    i = 0
     for epoch in range(1, model_config['num_epochs'] + 1):
         for batch_i, (batch, labels) in enumerate(data_loader):
             batch = batch.to(device)
@@ -181,6 +183,8 @@ def train_loop(model: nn.Module, data_loader: DataLoader, model_config: dict, mo
             # Backward and optimize
             loss.backward()
             optimizer.step()
+            losses[i] = loss.item()
+            i += 1
 
             if batch_i % 100 == 0:
                 print(f'Epoch [{epoch}/{model_config["num_epochs"]}], Batch: [{batch_i}/{total_step}], '
@@ -193,6 +197,7 @@ def train_loop(model: nn.Module, data_loader: DataLoader, model_config: dict, mo
             store_model(model, f"model_{model.__class__.__name__}_e_{epoch}_l_{loss.item():0.10f}.h5",
                         model_dir=os.path.join(MODEL_DIR, model_store_dir))
 
+    return losses
 
 def load_m1():
     model_config = {
@@ -250,15 +255,19 @@ def get_datapoints(dataset: str):
     return base + "return_datapoints_x.npy", base + "return_datapoints_y.npy", base + "param_datapoints_x.npy", base + "param_datapoints_y.npy"
 
 
-
 def report(y_true, y_pred, top_n, filename):
     # Fix the predictions if the true value is in top-n predictions
     y_pred_fixed = top_n_fix(y_true, y_pred, top_n)
 
     # Computation of metrics
     report = classification_report(y_true, y_pred_fixed, output_dict=True)
-    store_model(report, f"{filename}.pkl", "./output/reports/")
-    store_json(report, f"{filename}.json", "./output/reports/")
+    store_model(report, f"{filename}.pkl", "./output/reports/pkl")
+    store_json(report, f"{filename}.json", "./output/reports/json")
+
+
+def report_loss(losses, filename):
+    store_model(losses, f"{filename}.pkl", "./output/reports/pkl")
+    store_json({"loss": list(losses)}, f"{filename}.json", "./output/reports/json")
 
 
 if __name__ == '__main__':
@@ -287,7 +296,7 @@ if __name__ == '__main__':
                 train_loader, test_loader = load_dataset(X, y, model_config['batch_size'], split=0.8)
 
                 # Start training
-                train_loop(model, train_loader, model_config, model_store_dir=str(int(time.time())))
+                losses = train_loop(model, train_loader, model_config, model_store_dir=str(int(time.time())))
 
                 # print("-- Loading model")
                 # model = load_model('1571306801/model_BiRNN_e_9_l_1.8179169893.h5')
@@ -300,6 +309,8 @@ if __name__ == '__main__':
                 idx = (y_true != idx_of_other) & (y_pred[:, 0] != idx_of_other)
 
                 for top_n in top_n_pred:
-                    filename = f"{type(model).__name__}_{dataset}_{i}_{top_n}"
+                    filename = f"{load_model.__name__}_{dataset}_{i}_{top_n}"
                     report(y_true, y_pred, top_n, filename)
                     report(y_true[idx], y_pred[idx], top_n, f"{filename}_unfiltered")
+
+                report_loss(losses, f"{load_model.__name__}_{dataset}_{i}_loss")

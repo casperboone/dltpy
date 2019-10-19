@@ -116,30 +116,41 @@ def load_data_tensors(filename_X, filename_y, limit):
     return X, y
 
 
-def make_batch_prediction(model, X):
+def make_batch_prediction(model, X, top_n=1):
     model.eval()
     with torch.no_grad():
         # Compute model output
         outputs = model(X)
         # Max for each label
-        labels = torch.argmax(outputs, 1)
+        labels = np.argsort(outputs.data.cpu().numpy(), axis=1)
+        labels = np.flip(labels, axis=1)
+        labels = labels[:, :top_n]
         return outputs, labels
 
 
-def evaluate(model: nn.Module, data_loader: DataLoader):
+def evaluate(model: nn.Module, data_loader: DataLoader, top_n=1):
     true_labels = []
     predicted_labels = []
 
     for i, (batch, labels) in enumerate(data_loader):
-        _, batch_labels = make_batch_prediction(model, batch.to(device))
-        predicted_labels.append(batch_labels.cpu())
+        _, batch_labels = make_batch_prediction(model, batch.to(device), top_n=top_n)
+        predicted_labels.append(batch_labels)
         true_labels.append(labels)
 
     true_labels = np.hstack(true_labels)
-    predicted_labels = np.hstack(predicted_labels)
+    predicted_labels = np.vstack(predicted_labels)
 
     return true_labels, predicted_labels
 
+def top_n_fix(y_true, y_pred, n):
+    best_predicted = np.empty_like(y_true)
+    for i in range(y_true.shape[0]):
+        if y_true[i] in y_pred[i, :n]:
+            best_predicted[i] = y_true[i]
+        else:
+            best_predicted[i] = y_pred[i, 0]
+
+    return best_predicted
 
 def train_loop(model: nn.Module, data_loader: DataLoader, model_config: dict, model_store_dir, save_each_x_epochs=25):
     model.train()
@@ -211,6 +222,7 @@ def load_m2():
 
 
 if __name__ == '__main__':
+    top_n_pred = [1,2,3]
     print(f"-- Using {device} for training.")
     model, model_config = load_m1()
 
@@ -231,8 +243,11 @@ if __name__ == '__main__':
     # print("-- Loading model")
     # model = load_model('1571306801/model_BiRNN_e_9_l_1.8179169893.h5')
 
-    # Evaluate model performance
-    y_true, y_pred = evaluate(model, test_loader)
+    y_true, y_pred = evaluate(model, test_loader, top_n=max(top_n_pred))
 
-    # Computation of metrics...... more to come?
-    print(classification_report(y_true, y_pred))
+    for top_n in top_n_pred:
+        # Evaluate model performance
+        y_pred_fixed = top_n_fix(y_true, y_pred, top_n)
+
+        # Computation of metrics...... more to come?
+        print(classification_report(y_true, y_pred_fixed))

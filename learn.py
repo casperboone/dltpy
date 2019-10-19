@@ -132,7 +132,7 @@ def evaluate(model: nn.Module, data_loader: DataLoader):
 
     for i, (batch, labels) in enumerate(data_loader):
         _, batch_labels = make_batch_prediction(model, batch.to(device))
-        predicted_labels.append(batch_labels)
+        predicted_labels.append(batch_labels.cpu())
         true_labels.append(labels)
 
     true_labels = np.hstack(true_labels)

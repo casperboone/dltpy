@@ -67,7 +67,7 @@ class BiRNN(nn.Module):
 
 class GRURNN(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, bidirectional=True):
-        super(BiRNN, self).__init__()
+        super(GRURNN, self).__init__()
 
         self.hidden_size = hidden_size
 
@@ -96,10 +96,7 @@ class GRURNN(nn.Module):
         return x
 
 
-def load_dataset(filename_X, filename_y, batch_size, limit=None, split=0.8):
-    X = torch.from_numpy(np.load(filename_X)[0:limit]).float()
-    y = torch.from_numpy(np.argmax(np.load(filename_y), axis=1)[0:limit]).long()
-
+def load_dataset(X, y, batch_size, split=0.8):
     train_data = torch.utils.data.TensorDataset(X, y)
 
     train_size = int(split * len(train_data))
@@ -111,6 +108,12 @@ def load_dataset(filename_X, filename_y, batch_size, limit=None, split=0.8):
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size)
 
     return train_loader, test_loader
+
+
+def load_data_tensors(filename_X, filename_y, limit):
+    X = torch.from_numpy(np.load(filename_X)[0:limit]).float()
+    y = torch.from_numpy(np.argmax(np.load(filename_y), axis=1)[0:limit]).long()
+    return X, y
 
 
 def make_batch_prediction(model, X):
@@ -177,12 +180,12 @@ def load_m1():
     model_config = {
         'sequence_length': 55,
         'input_size': 14,  # The number of expected features in the input `x`
-        'hidden_size': 10,  # 128x2: 256
-        'num_layers': 1,
-        'batch_size': 32,
+        'hidden_size': 14,  # 128x2: 256
+        'num_layers': 2,
+        'batch_size': 64,
         'num_epochs': 500,
         'learning_rate': 0.002,
-        'bidirectional': False
+        'bidirectional': True
     }
     # Load the model
     model = BiRNN(model_config['input_size'], model_config['hidden_size'],
@@ -196,7 +199,7 @@ def load_m2():
         'input_size': 14,  # The number of expected features in the input `x`
         'hidden_size': 10,  # 128x2: 256
         'num_layers': 1,
-        'batch_size': 32,
+        'batch_size': 64,
         'num_epochs': 10,
         'learning_rate': 0.002,
         'bidirectional': False
@@ -215,8 +218,12 @@ if __name__ == '__main__':
 
     # Load data
     print("-- Loading data")
-    train_loader, test_loader = load_dataset(RETURN_DATAPOINTS_X, RETURN_DATAPOINTS_Y, model_config['batch_size'],
-                                             limit=-1, split=0.8)
+    Xr, yr = load_data_tensors(RETURN_DATAPOINTS_X, RETURN_DATAPOINTS_Y, limit=-1)
+    Xp, yp = load_data_tensors(PARAM_DATAPOINTS_X, PARAM_DATAPOINTS_Y, limit=-1)
+    X = torch.cat((Xp, Xr))
+    y = torch.cat((yp, yr))
+
+    train_loader, test_loader = load_dataset(X, y, model_config['batch_size'], split=0.8)
 
     # Start training
     train_loop(model, train_loader, model_config, model_store_dir=str(int(time.time())))

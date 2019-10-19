@@ -1,6 +1,7 @@
 import os
 import pickle
 import time
+import json
 
 import numpy as np
 import torch
@@ -27,6 +28,12 @@ def store_model(model, filename, model_dir=MODEL_DIR):
     os.makedirs(model_dir, exist_ok=True)
     with open(os.path.join(model_dir, filename), 'wb') as f:
         pickle.dump(model, f)
+
+
+def store_json(model, filename, model_dir=MODEL_DIR):
+    os.makedirs(model_dir, exist_ok=True)
+    with open(os.path.join(model_dir, filename), 'w') as f:
+        f.write(json.dumps(model))
 
 
 def load_model(filename, model_dir=MODEL_DIR):
@@ -210,8 +217,8 @@ def load_m2():
         'input_size': 14,  # The number of expected features in the input `x`
         'hidden_size': 10,  # 128x2: 256
         'num_layers': 1,
-        'batch_size': 64,
-        'num_epochs': 10,
+        'batch_size': 128,
+        'num_epochs': 500,
         'learning_rate': 0.002,
         'bidirectional': False
     }
@@ -228,7 +235,7 @@ def load_m3():
         'hidden_size': 128,  # 128x2: 256
         'num_layers': 1,
         'batch_size': 256,
-        'num_epochs': 1,
+        'num_epochs': 25,
         'learning_rate': 0.002,
         'bidirectional': True
     }
@@ -241,6 +248,17 @@ def load_m3():
 def get_datapoints(dataset: str):
     base = f"./input_datasets/{dataset}/vectors/"
     return base + "return_datapoints_x.npy", base + "return_datapoints_y.npy", base + "param_datapoints_x.npy", base + "param_datapoints_y.npy"
+
+
+
+def report(y_true, y_pred, top_n, filename):
+    # Fix the predictions if the true value is in top-n predictions
+    y_pred_fixed = top_n_fix(y_true, y_pred, top_n)
+
+    # Computation of metrics
+    report = classification_report(y_true, y_pred_fixed, output_dict=True)
+    store_model(report, f"{filename}.pkl", "./output/reports/")
+    store_json(report, f"{filename}.json", "./output/reports/")
 
 
 if __name__ == '__main__':
@@ -274,19 +292,14 @@ if __name__ == '__main__':
                 # print("-- Loading model")
                 # model = load_model('1571306801/model_BiRNN_e_9_l_1.8179169893.h5')
 
+                # Evaluate model performance
                 y_true, y_pred = evaluate(model, test_loader, top_n=max(top_n_pred))
 
-                idx_of_other = pickle.load(open('output/ml_inputs/label_encoder.pkl', 'rb')).transform(['other'])[0]
-                idx = (y_true != idx_of_other) & (y_pred != idx_of_other)
-                y_true = y_true[idx]
-                y_pred = y_pred[idx]
-
-
-
+                # If the prediction is "other" - ignore the result
+                idx_of_other = pickle.load(open(f'./input_datasets/{dataset}/ml_inputs/label_encoder.pkl', 'rb')).transform(['other'])[0]
+                idx = (y_true != idx_of_other) & (y_pred[:, 0] != idx_of_other)
 
                 for top_n in top_n_pred:
-                    # Evaluate model performance
-                    y_pred_fixed = top_n_fix(y_true, y_pred, top_n)
-
-                    # Computation of metrics...... more to come?
-                    print(classification_report(y_true, y_pred_fixed))
+                    filename = f"{type(model).__name__}_{dataset}_{i}_{top_n}"
+                    report(y_true, y_pred, top_n, filename)
+                    report(y_true[idx], y_pred[idx], top_n, f"{filename}_unfiltered")

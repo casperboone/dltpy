@@ -192,7 +192,7 @@ def train_loop(model: nn.Module, data_loader: DataLoader, model_config: dict, mo
                 if device == 'cuda':
                     print(f"Cuda v-memory allocated {torch.cuda.memory_allocated()}")
 
-        if epoch % save_each_x_epochs == 0 or (epoch == model_config['num_epochs'] + 1):
+        if epoch % save_each_x_epochs == 0 or (epoch == model_config['num_epochs']):
             print("Storing model!")
             store_model(model, f"model_{model.__class__.__name__}_e_{epoch}_l_{loss.item():0.10f}.h5",
                         model_dir=os.path.join(MODEL_DIR, model_store_dir))
@@ -296,7 +296,7 @@ if __name__ == '__main__':
                 train_loader, test_loader = load_dataset(X, y, model_config['batch_size'], split=0.8)
 
                 # Start training
-                losses = train_loop(model, train_loader, model_config, model_store_dir=str(int(time.time())))
+                losses = train_loop(model, train_loader, model_config, model_store_dir=f"{load_model.__name__}/{dataset}/{i}"+str(int(time.time())))
 
                 # print("-- Loading model")
                 # model = load_model('1571306801/model_BiRNN_e_9_l_1.8179169893.h5')

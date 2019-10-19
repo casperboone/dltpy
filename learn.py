@@ -193,7 +193,7 @@ def load_m1():
         'input_size': 14,  # The number of expected features in the input `x`
         'hidden_size': 14,  # 128x2: 256
         'num_layers': 2,
-        'batch_size': 64,
+        'batch_size': 128,
         'num_epochs': 500,
         'learning_rate': 0.002,
         'bidirectional': True
@@ -221,33 +221,64 @@ def load_m2():
     return model, model_config
 
 
+def load_m3():
+    model_config = {
+        'sequence_length': 55,
+        'input_size': 14,  # The number of expected features in the input `x`
+        'hidden_size': 128,  # 128x2: 256
+        'num_layers': 1,
+        'batch_size': 256,
+        'num_epochs': 1,
+        'learning_rate': 0.002,
+        'bidirectional': True
+    }
+    # Load the model
+    model = BiRNN(model_config['input_size'], model_config['hidden_size'],
+                  model_config['num_layers'], model_config['bidirectional']).to(device)
+    return model, model_config
+
+
+def get_datapoints(dataset: str):
+    base = f"./input_datasets/{dataset}/vectors/"
+    return base + "return_datapoints_x.npy", base + "return_datapoints_y.npy", base + "param_datapoints_x.npy", base + "param_datapoints_y.npy"
+
+
 if __name__ == '__main__':
-    top_n_pred = [1,2,3]
     print(f"-- Using {device} for training.")
-    model, model_config = load_m1()
 
-    print(f"-- Model Loaded: {model} with {count_model_parameters(model)} parameters.")
+    top_n_pred = [1,2,3]
+    models = [load_m1, load_m2, load_m3]
+    datasets = ["1_complete", "2_cf_cr_optional", "3_cp_cf_cr_optional", "4_complete_without_return_expressions"]
+    n_repetitions = 3
 
-    # Load data
-    print("-- Loading data")
-    Xr, yr = load_data_tensors(RETURN_DATAPOINTS_X, RETURN_DATAPOINTS_Y, limit=-1)
-    Xp, yp = load_data_tensors(PARAM_DATAPOINTS_X, PARAM_DATAPOINTS_Y, limit=-1)
-    X = torch.cat((Xp, Xr))
-    y = torch.cat((yp, yr))
+    for dataset in datasets:
+        # Load data
+        RETURN_DATAPOINTS_X, RETURN_DATAPOINTS_Y, PARAM_DATAPOINTS_X, PARAM_DATAPOINTS_Y = get_datapoints(dataset)
+        print(f"-- Loading data: {dataset}")
+        Xr, yr = load_data_tensors(RETURN_DATAPOINTS_X, RETURN_DATAPOINTS_Y, limit=-1)
+        Xp, yp = load_data_tensors(PARAM_DATAPOINTS_X, PARAM_DATAPOINTS_Y, limit=-1)
+        X = torch.cat((Xp, Xr))
+        y = torch.cat((yp, yr))
 
-    train_loader, test_loader = load_dataset(X, y, model_config['batch_size'], split=0.8)
+        for load_model in models:
+            for i in range(n_repetitions):
+                model, model_config = load_model()
 
-    # Start training
-    train_loop(model, train_loader, model_config, model_store_dir=str(int(time.time())))
+                print(f"-- Model Loaded: {model} with {count_model_parameters(model)} parameters.")
 
-    # print("-- Loading model")
-    # model = load_model('1571306801/model_BiRNN_e_9_l_1.8179169893.h5')
+                train_loader, test_loader = load_dataset(X, y, model_config['batch_size'], split=0.8)
 
-    y_true, y_pred = evaluate(model, test_loader, top_n=max(top_n_pred))
+                # Start training
+                train_loop(model, train_loader, model_config, model_store_dir=str(int(time.time())))
 
-    for top_n in top_n_pred:
-        # Evaluate model performance
-        y_pred_fixed = top_n_fix(y_true, y_pred, top_n)
+                # print("-- Loading model")
+                # model = load_model('1571306801/model_BiRNN_e_9_l_1.8179169893.h5')
 
-        # Computation of metrics...... more to come?
-        print(classification_report(y_true, y_pred_fixed))
+                y_true, y_pred = evaluate(model, test_loader, top_n=max(top_n_pred))
+
+                for top_n in top_n_pred:
+                    # Evaluate model performance
+                    y_pred_fixed = top_n_fix(y_true, y_pred, top_n)
+
+                    # Computation of metrics...... more to come?
+                    print(classification_report(y_true, y_pred_fixed))

@@ -15,7 +15,6 @@ RETURN_DATAPOINTS_Y = "./output/vectors/return_datapoints_y.npy"
 PARAM_DATAPOINTS_X = "./output/vectors/param_datapoints_x.npy"
 PARAM_DATAPOINTS_Y = "./output/vectors/param_datapoints_y.npy"
 
-
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -36,7 +35,7 @@ def load_model(filename, model_dir=MODEL_DIR):
 
 
 class BiRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers):
+    def __init__(self, input_size, hidden_size, num_layers, bidirectional=True):
         super(BiRNN, self).__init__()
 
         self.hidden_size = hidden_size
@@ -46,9 +45,40 @@ class BiRNN(nn.Module):
         self.dropout = nn.Dropout(p=0.2)
 
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers,
-                            batch_first=True, bidirectional=True)
+                            batch_first=True, bidirectional=bidirectional)
 
-        self.linear = nn.Linear(hidden_size * 2, 1000)
+        self.linear = nn.Linear(hidden_size * (2 if bidirectional else 1), 1000)
+
+    def forward(self, x):
+        x = self.dropout(x)
+
+        # Forward propagate LSTM
+        # Out: tensor of shape (batch_size, seq_length, hidden_size*2)
+        x, _ = self.lstm(x)
+
+        # Decode the hidden state of the last time step
+        x = x[:, -1, :]
+
+        # Output layer
+        x = self.linear(x)
+
+        return x
+
+
+class GRURNN(nn.Module):
+    def __init__(self, input_size, hidden_size, num_layers, bidirectional=True):
+        super(BiRNN, self).__init__()
+
+        self.hidden_size = hidden_size
+
+        self.num_layers = num_layers
+
+        self.dropout = nn.Dropout(p=0.2)
+
+        self.lstm = nn.GRU(input_size, hidden_size, num_layers,
+                           batch_first=True, bidirectional=bidirectional)
+
+        self.linear = nn.Linear(hidden_size * (2 if bidirectional else 1), 1000)
 
     def forward(self, x):
         x = self.dropout(x)
@@ -108,7 +138,7 @@ def evaluate(model: nn.Module, data_loader: DataLoader):
     return true_labels, predicted_labels
 
 
-def train_loop(model: nn.Module, data_loader: DataLoader, model_config: dict, model_store_dir, save_each_x_epochs=1):
+def train_loop(model: nn.Module, data_loader: DataLoader, model_config: dict, model_store_dir, save_each_x_epochs=25):
     model.train()
 
     # Loss and optimizer
@@ -137,32 +167,56 @@ def train_loop(model: nn.Module, data_loader: DataLoader, model_config: dict, mo
                 if device == 'cuda':
                     print(f"Cuda v-memory allocated {torch.cuda.memory_allocated()}")
 
-        if epoch % save_each_x_epochs == 0:
+        if epoch % save_each_x_epochs == 0 or (epoch == model_config['num_epochs'] + 1):
             print("Storing model!")
             store_model(model, f"model_{model.__class__.__name__}_e_{epoch}_l_{loss.item():0.10f}.h5",
                         model_dir=os.path.join(MODEL_DIR, model_store_dir))
 
 
-if __name__ == '__main__':
-    print(f"-- Using {device} for training.")
-
+def load_m1():
     model_config = {
         'sequence_length': 55,
-        'input_size': 100,  # The number of expected features in the input `x`
-        'hidden_size': 128,  # 128x2: 256
+        'input_size': 14,  # The number of expected features in the input `x`
+        'hidden_size': 10,  # 128x2: 256
         'num_layers': 1,
         'batch_size': 32,
-        'num_epochs': 1,
+        'num_epochs': 500,
         'learning_rate': 0.002,
+        'bidirectional': False
     }
-
     # Load the model
-    model = BiRNN(model_config['input_size'], model_config['hidden_size'], model_config['num_layers']).to(device)
+    model = BiRNN(model_config['input_size'], model_config['hidden_size'],
+                  model_config['num_layers'], model_config['bidirectional']).to(device)
+    return model, model_config
+
+
+def load_m2():
+    model_config = {
+        'sequence_length': 55,
+        'input_size': 14,  # The number of expected features in the input `x`
+        'hidden_size': 10,  # 128x2: 256
+        'num_layers': 1,
+        'batch_size': 32,
+        'num_epochs': 10,
+        'learning_rate': 0.002,
+        'bidirectional': False
+    }
+    # Load the model
+    model = GRURNN(model_config['input_size'], model_config['hidden_size'],
+                  model_config['num_layers'], model_config['bidirectional']).to(device)
+    return model, model_config
+
+
+if __name__ == '__main__':
+    print(f"-- Using {device} for training.")
+    model, model_config = load_m1()
+
     print(f"-- Model Loaded: {model} with {count_model_parameters(model)} parameters.")
 
     # Load data
     print("-- Loading data")
-    train_loader, test_loader = load_dataset(RETURN_DATAPOINTS_X, RETURN_DATAPOINTS_Y, model_config['batch_size'], limit=1000, split=0.8)
+    train_loader, test_loader = load_dataset(RETURN_DATAPOINTS_X, RETURN_DATAPOINTS_Y, model_config['batch_size'],
+                                             limit=-1, split=0.8)
 
     # Start training
     train_loop(model, train_loader, model_config, model_store_dir=str(int(time.time())))

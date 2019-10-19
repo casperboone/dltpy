@@ -276,6 +276,14 @@ if __name__ == '__main__':
 
                 y_true, y_pred = evaluate(model, test_loader, top_n=max(top_n_pred))
 
+                idx_of_other = pickle.load(open('output/ml_inputs/label_encoder.pkl', 'rb')).transform(['other'])[0]
+                idx = (y_true != idx_of_other) & (y_pred != idx_of_other)
+                y_true = y_true[idx]
+                y_pred = y_pred[idx]
+
+
+
+
                 for top_n in top_n_pred:
                     # Evaluate model performance
                     y_pred_fixed = top_n_fix(y_true, y_pred, top_n)

@@ -186,11 +186,10 @@ def train_loop(model: nn.Module, data_loader: DataLoader, model_config: dict, mo
             losses[i] = loss.item()
             i += 1
 
-            if batch_i % 100 == 0:
-                print(f'Epoch [{epoch}/{model_config["num_epochs"]}], Batch: [{batch_i}/{total_step}], '
-                      f'Loss:{loss.item():.10f}')
-                if device == 'cuda':
-                    print(f"Cuda v-memory allocated {torch.cuda.memory_allocated()}")
+        print(f'Epoch [{epoch}/{model_config["num_epochs"]}], Batch: [{batch_i}/{total_step}], '
+              f'Loss:{loss.item():.10f}')
+        if device == 'cuda':
+            print(f"Cuda v-memory allocated {torch.cuda.memory_allocated()}")
 
         if epoch % save_each_x_epochs == 0 or (epoch == model_config['num_epochs']):
             print("Storing model!")
@@ -205,8 +204,8 @@ def load_m1():
         'input_size': 14,  # The number of expected features in the input `x`
         'hidden_size': 14,  # 128x2: 256
         'num_layers': 2,
-        'batch_size': 128,
-        'num_epochs': 500,
+        'batch_size': 256,
+        'num_epochs': 100,
         'learning_rate': 0.002,
         'bidirectional': True
     }
@@ -222,8 +221,8 @@ def load_m2():
         'input_size': 14,  # The number of expected features in the input `x`
         'hidden_size': 10,  # 128x2: 256
         'num_layers': 1,
-        'batch_size': 128,
-        'num_epochs': 500,
+        'batch_size': 256,
+        'num_epochs': 100,
         'learning_rate': 0.002,
         'bidirectional': False
     }
@@ -241,6 +240,22 @@ def load_m3():
         'num_layers': 1,
         'batch_size': 256,
         'num_epochs': 25,
+        'learning_rate': 0.002,
+        'bidirectional': True
+    }
+    # Load the model
+    model = BiRNN(model_config['input_size'], model_config['hidden_size'],
+                  model_config['num_layers'], model_config['bidirectional']).to(device)
+    return model, model_config
+
+def load_m4():
+    model_config = {
+        'sequence_length': 55,
+        'input_size': 14,  # The number of expected features in the input `x`
+        'hidden_size': 20,  # 128x2: 256
+        'num_layers': 1,
+        'batch_size': 256,
+        'num_epochs': 100,
         'learning_rate': 0.002,
         'bidirectional': True
     }
@@ -274,8 +289,8 @@ if __name__ == '__main__':
     print(f"-- Using {device} for training.")
 
     top_n_pred = [1,2,3]
-    models = [load_m1, load_m2, load_m3]
-    datasets = ["1_complete", "2_cf_cr_optional", "3_cp_cf_cr_optional", "4_complete_without_return_expressions"]
+    models = [load_m4]
+    datasets = ["2_cf_cr_optional", "3_cp_cf_cr_optional", "4_complete_without_return_expressions"]
     n_repetitions = 3
 
     for dataset in datasets:

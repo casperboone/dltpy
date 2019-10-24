@@ -84,16 +84,13 @@ class SentenceProcessor:
         """
         Removes and replaces non-textual elements
 
-        Removes whitespace and all punctuation except questions marks. Question marks are replaced with full stops,
-        as we do not want to care about questions. Full stops not followed by a space are replace with a space, e.g.
-        object.property -> object property.
+        Removes whitespace and all punctuations. Question marks and full stops are replaced with
+        a space. Full stops that are not followed by a space are also replaced with a space, e.g. object.property ->
+        object property.
         """
-        sentence = re.sub('[^A-Za-z0-9. ?]+', ' ', sentence) \
-            .replace('?', '.') \
+        return re.sub('[^A-Za-z0-9 ]+', ' ', sentence) \
             .replace('\n', '') \
             .replace('\r', '')
-
-        return re.sub('\.(?! )', ' ', sentence)
 
     @staticmethod
     def tokenize(sentence: str) -> str:

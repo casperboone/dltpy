@@ -10,11 +10,8 @@ from sklearn.metrics import classification_report
 from torch.utils import data
 from torch.utils.data import DataLoader
 
-MODEL_DIR = "./output/models/"
-RETURN_DATAPOINTS_X = "./output/vectors/return_datapoints_x.npy"
-RETURN_DATAPOINTS_Y = "./output/vectors/return_datapoints_y.npy"
-PARAM_DATAPOINTS_X = "./output/vectors/param_datapoints_x.npy"
-PARAM_DATAPOINTS_Y = "./output/vectors/param_datapoints_y.npy"
+import config
+
 
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -24,19 +21,19 @@ def count_model_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-def store_model(model, filename, model_dir=MODEL_DIR):
+def store_model(model, filename, model_dir=config.MODEL_DIR):
     os.makedirs(model_dir, exist_ok=True)
     with open(os.path.join(model_dir, filename), 'wb') as f:
         pickle.dump(model, f)
 
 
-def store_json(model, filename, model_dir=MODEL_DIR):
+def store_json(model, filename, model_dir=config.MODEL_DIR):
     os.makedirs(model_dir, exist_ok=True)
     with open(os.path.join(model_dir, filename), 'w') as f:
         f.write(json.dumps(model))
 
 
-def load_model(filename, model_dir=MODEL_DIR):
+def load_model(filename, model_dir=config.MODEL_DIR):
     with open(os.path.join(model_dir, filename), 'rb') as f:
         return pickle.load(f)
 
@@ -194,7 +191,7 @@ def train_loop(model: nn.Module, data_loader: DataLoader, model_config: dict, mo
         if epoch % save_each_x_epochs == 0 or (epoch == model_config['num_epochs']):
             print("Storing model!")
             store_model(model, f"model_{model.__class__.__name__}_e_{epoch}_l_{loss.item():0.10f}.h5",
-                        model_dir=os.path.join(MODEL_DIR, model_store_dir))
+                        model_dir=os.path.join(config.MODEL_DIR, model_store_dir))
 
     return losses
 

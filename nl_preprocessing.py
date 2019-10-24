@@ -84,7 +84,7 @@ class SentenceProcessor:
         """
         Removes and replaces non-textual elements
 
-        Removes whitespace and all punctuation except questions marks. Question marks and full stops are replaced with
+        Removes whitespace and all punctuations. Question marks and full stops are replaced with
         a space. Full stops that are not followed by a space are also replaced with a space, e.g. object.property ->
         object property.
         """

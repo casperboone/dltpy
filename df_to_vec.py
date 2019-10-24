@@ -8,16 +8,11 @@ import os
 
 from pandas import Series
 
-OUTPUT_DIRECTORY = './output/vectors'
-PARAM_DATAPOINTS_DATAFRAME = './output/ml_inputs/_ml_param.csv'
-RETURN_DATAPOINTS_DATAFRAME = './output/ml_inputs/_ml_return.csv'
-
-VEC_LENGTH = 100
-NUMBER_OF_TYPES = 1000
+import config
 
 w2v_models = {
-    'code': Word2Vec.load('resources/w2v_code_model.bin'),
-    'language': Word2Vec.load('resources/w2v_language_model.bin')
+    'code': Word2Vec.load(config.W2V_MODEL_CODE_DIR),
+    'language': Word2Vec.load(config.W2V_MODEL_LANGUAGE_DIR)
 }
 
 
@@ -27,7 +22,7 @@ def vectorize_string(sentence: str, feature_length: int, w2v_model: Word2Vec) ->
 
     Roughly based on https://github.com/sola-da/NL2Type/blob/master/scripts/csv_to_vecs.py
     """
-    vector = np.zeros((feature_length, VEC_LENGTH))
+    vector = np.zeros((feature_length, config.W2V_VEC_LENGTH))
 
     for i, word in enumerate(sentence.split()):
         if i >= feature_length:
@@ -74,9 +69,9 @@ class Datapoint(ABC):
         The vector contains all the features specified in the subclass. Natural language features are converted to
         vectors using the word2vec models.
         """
-        datapoint = np.zeros((self.vector_length(), VEC_LENGTH))
+        datapoint = np.zeros((self.vector_length(), config.W2V_VEC_LENGTH))
 
-        separator = np.ones(VEC_LENGTH)
+        separator = np.ones(config.W2V_VEC_LENGTH)
 
         position = 0
         for feature, feature_length in self.feature_lengths.items():
@@ -98,7 +93,7 @@ class Datapoint(ABC):
 
             if self.feature_types[feature] == 'padding':
                 for i in range(0, feature_length):
-                    datapoint[position] = np.zeros(VEC_LENGTH)
+                    datapoint[position] = np.zeros(config.W2V_VEC_LENGTH)
                     position += 1
 
             # Add separator after each feature
@@ -112,7 +107,7 @@ class Datapoint(ABC):
         """
         A vector representation of what needs to be predicted, in this case the type
         """
-        vector = np.zeros(NUMBER_OF_TYPES)
+        vector = np.zeros(config.NUMBER_OF_TYPES)
         vector[self.type] = 1
         return vector
 
@@ -161,7 +156,7 @@ class ParameterDatapoint(Datapoint):
         self.type = type
 
     def datapoint_type_vector(self) -> np.ndarray:
-        datapoint_type = np.zeros((1, VEC_LENGTH))
+        datapoint_type = np.zeros((1, config.W2V_VEC_LENGTH))
         datapoint_type[0][0] = 1
         return datapoint_type
 
@@ -202,7 +197,7 @@ class ReturnDatapoint(Datapoint):
         self.type = type
 
     def datapoint_type_vector(self) -> np.ndarray:
-        datapoint_type = np.zeros((1, VEC_LENGTH))
+        datapoint_type = np.zeros((1, config.W2V_VEC_LENGTH))
         datapoint_type[0][1] = 1
         return datapoint_type
 
@@ -219,26 +214,26 @@ def process_datapoints(filename: str, type: str, transformation: Callable[[Serie
     datapoints = df.apply(transformation, axis=1)
 
     datapoints_result_x = np.stack(datapoints.apply(lambda x: x.to_vec()), axis=0)
-    np.save(os.path.join(OUTPUT_DIRECTORY, type + '_datapoints_x'), datapoints_result_x)
+    np.save(os.path.join(config.VECTOR_OUTPUT_DIRECTORY, type + '_datapoints_x'), datapoints_result_x)
     datapoints_result_y = np.stack(datapoints.apply(lambda x: x.to_be_predicted_to_vec()), axis=0)
-    np.save(os.path.join(OUTPUT_DIRECTORY, type + '_datapoints_y'), datapoints_result_y)
+    np.save(os.path.join(config.VECTOR_OUTPUT_DIRECTORY, type + '_datapoints_y'), datapoints_result_y)
 
     return datapoints_result_x, datapoints_result_y
 
 
 if __name__ == '__main__':
-    if not os.path.isdir(OUTPUT_DIRECTORY):
-        os.mkdir(OUTPUT_DIRECTORY)
+    if not os.path.isdir(config.VECTOR_OUTPUT_DIRECTORY):
+        os.mkdir(config.VECTOR_OUTPUT_DIRECTORY)
 
     # Process parameter datapoints
     param_datapoints_result_x, param_datapoints_result_y = process_datapoints(
-        PARAM_DATAPOINTS_DATAFRAME,
+        config.ML_PARAM_DF_PATH,
         'param',
         lambda row: ParameterDatapoint(row.arg_name, row.arg_comment, row.arg_type_enc)
     )
 
     return_datapoints_result_x, return_datapoints_result_y = process_datapoints(
-        RETURN_DATAPOINTS_DATAFRAME,
+        config.ML_RETURN_DF_PATH,
         'return',
         lambda row: ReturnDatapoint(row['name'], row.func_descr if row.func_descr is str else row.docstring,
                                     row.return_descr, row.return_expr_str, row.arg_names_str, row.return_type_enc),

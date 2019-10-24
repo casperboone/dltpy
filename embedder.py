@@ -3,15 +3,13 @@ import pandas as pd
 import multiprocessing
 import os
 from time import time
+import config
 
 
 #CONFIG
-OUTPUT_DIRECTORY = os.path.join('./output')
-PARAM_DF_PATH = os.path.join(OUTPUT_DIRECTORY, 'ml_inputs', '_ml_param.csv')
-RETURN_DF_PATH = os.path.join(OUTPUT_DIRECTORY, 'ml_inputs', '_ml_return.csv')
-OUTPUT_EMBEDDINGS_DIRECTORY = os.path.join('./resources')
-LANGUAGE_EMBEDDING_OUTPUT_PATH = os.path.join(OUTPUT_EMBEDDINGS_DIRECTORY, 'w2v_language_model.bin')
-CODE_EMBEDDING_OUTPUT_PATH = os.path.join(OUTPUT_EMBEDDINGS_DIRECTORY, 'w2v_code_model.bin')
+
+#LANGUAGE_EMBEDDING_OUTPUT_PATH = os.path.join(OUTPUT_EMBEDDINGS_DIRECTORY, 'w2v_language_model.bin')
+#CODE_EMBEDDING_OUTPUT_PATH = os.path.join(OUTPUT_EMBEDDINGS_DIRECTORY, 'w2v_code_model.bin')
 
 
 
@@ -78,9 +76,9 @@ class Embedder:
 
         cores = multiprocessing.cpu_count()
 
-        w2v_model = Word2Vec(min_count=5,           #Specified in NL2Type
-                             window=5,              #Specified in NL2Type
-                             size=100,              #Specified in NL2Type
+        w2v_model = Word2Vec(min_count=5,
+                             window=5,
+                             size=config.W2V_VEC_LENGTH,
                              workers=cores-1)
 
         t = time()
@@ -104,31 +102,31 @@ class Embedder:
         """
         Train a Word2Vec model for the descriptions and save to file.
         """
-        self.train_model(LanguageIterator(self.param_df, self.return_df), LANGUAGE_EMBEDDING_OUTPUT_PATH)
+        self.train_model(LanguageIterator(self.param_df, self.return_df), config.W2V_MODEL_LANGUAGE_DIR)
 
     def train_code_model(self) -> None:
         """
         Train a Word2Vec model for the code expressions and save to file.
         """
-        self.train_model(CodeIterator(self.param_df, self.return_df), CODE_EMBEDDING_OUTPUT_PATH)
+        self.train_model(CodeIterator(self.param_df, self.return_df), config.W2V_MODEL_CODE_DIR)
 
 
 if __name__ == '__main__':
-    param_df = pd.read_csv(PARAM_DF_PATH)
+    param_df = pd.read_csv(config.ML_PARAM_DF_PATH)
     param_df = param_df.dropna()
 
-    return_df = pd.read_csv(RETURN_DF_PATH)
+    return_df = pd.read_csv(config.ML_RETURN_DF_PATH)
     return_df = return_df.dropna()
 
-    if not os.path.isdir(OUTPUT_EMBEDDINGS_DIRECTORY):
-        os.mkdir(OUTPUT_EMBEDDINGS_DIRECTORY)
+    if not os.path.isdir(config.OUTPUT_EMBEDDINGS_DIRECTORY):
+        os.mkdir(config.OUTPUT_EMBEDDINGS_DIRECTORY)
 
     embedder = Embedder(param_df, return_df)
     embedder.train_code_model()
     embedder.train_language_model()
 
-    w2v_language_model = Word2Vec.load(LANGUAGE_EMBEDDING_OUTPUT_PATH)
-    w2v_code_model = Word2Vec.load(CODE_EMBEDDING_OUTPUT_PATH)
+    w2v_language_model = Word2Vec.load(config.W2V_MODEL_LANGUAGE_DIR)
+    w2v_code_model = Word2Vec.load(config.W2V_MODEL_CODE_DIR)
 
     print("W2V statistics: ")
     print("W2V language model total amount of words : " + str(w2v_language_model.corpus_total_words))

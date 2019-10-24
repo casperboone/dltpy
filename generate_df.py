@@ -10,18 +10,10 @@ from pandas import DataFrame
 from sklearn import preprocessing
 from sklearn.preprocessing import LabelEncoder
 
-# Configuration
-PROJECT_ROOT = os.path.dirname(__file__)
-DATA_FILES_DIR = os.path.join(PROJECT_ROOT, "output/data/")
-ML_INPUTS_PATH = os.path.join(PROJECT_ROOT, "output/ml_inputs/")
-ML_RETURN_DF_PATH = os.path.join(ML_INPUTS_PATH, "_ml_return.csv")
-ML_PARAM_DF_PATH = os.path.join(ML_INPUTS_PATH, "_ml_param.csv")
-LABEL_ENCODER_PATH = os.path.join(ML_INPUTS_PATH, "label_encoder.pkl")
-DATA_FILE = os.path.join(ML_INPUTS_PATH, "_all_data.csv")
-FILTERED_DATA_FILE = os.path.join(ML_INPUTS_PATH, "_data_filtered.csv")
+import config
 
+# LOCAL CONFIG
 CACHE = True
-
 
 def list_files(directory: str, full=True) -> list:
     """
@@ -179,31 +171,31 @@ def encode_types(df: pd.DataFrame, df_args: pd.DataFrame, threshold: int = 999) 
 
 
 if __name__ == '__main__':
-    if not os.path.exists(ML_INPUTS_PATH):
-        os.makedirs(ML_INPUTS_PATH)
+    if not os.path.exists(config.ML_INPUTS_PATH):
+        os.makedirs(config.ML_INPUTS_PATH)
 
-    if CACHE and os.path.exists(FILTERED_DATA_FILE):
+    if CACHE and os.path.exists(config.FILTERED_DATA_FILE):
         print("Loading filtered cached copy")
-        df = pd.read_csv(FILTERED_DATA_FILE)
-    elif CACHE and os.path.exists(DATA_FILE):
+        df = pd.read_csv(config.FILTERED_DATA_FILE)
+    elif CACHE and os.path.exists(config.DATA_FILE):
         print("Loading cached copy")
-        df = pd.read_csv(DATA_FILE)
+        df = pd.read_csv(config.DATA_FILE)
         df = filter_functions(df)
-        df.to_csv(FILTERED_DATA_FILE, index=False)
+        df.to_csv(config.FILTERED_DATA_FILE, index=False)
     else:
-        DATA_FILES = list_files(DATA_FILES_DIR)
+        DATA_FILES = list_files(config.DATA_FILES_DIR)
         print("Found %d datafiles" % len(DATA_FILES))
 
         df = parse_df(DATA_FILES, batch_size=128)
 
         print("Dataframe loaded writing it to CSV")
-        df.to_csv(DATA_FILE, index=False)
+        df.to_csv(config.DATA_FILE, index=False)
 
         print("Filtering dataframe")
         df = filter_functions(df)
 
         print("Dataframe filtered writing cached version to CSV")
-        df.to_csv(FILTERED_DATA_FILE, index=False)
+        df.to_csv(config.FILTERED_DATA_FILE, index=False)
 
     # Format dataframe
     print("Formatting dataframe")
@@ -221,7 +213,7 @@ if __name__ == '__main__':
     df, df_params, label_encoder = encode_types(df, df_params)
 
     print("Storing label encoder")
-    with open(LABEL_ENCODER_PATH, 'wb') as file:
+    with open(config.LABEL_ENCODER_PATH, 'wb') as file:
         pickle.dump(label_encoder, file)
 
     # Add argument names as a string except self
@@ -234,5 +226,5 @@ if __name__ == '__main__':
     df = df.drop(columns=['file', 'author', 'repo', 'has_type', 'arg_names', 'arg_types', 'arg_descrs', 'return_expr'])
 
     # Store the dataframes
-    df.to_csv(ML_RETURN_DF_PATH, index=False)
-    df_params.to_csv(ML_PARAM_DF_PATH, index=False)
+    df.to_csv(config.ML_RETURN_DF_PATH, index=False)
+    df_params.to_csv(config.ML_PARAM_DF_PATH, index=False)

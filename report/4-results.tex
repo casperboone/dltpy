@@ -1,0 +1,28 @@
+\section{Results}
+In this section we present the results of \dltpy. First, we show and compare the results of our different experiments as described in section \ref{evaluation:experiments} using the metrics described in section \ref{evaluation:metrics}. Then, we compare the results to previous work, specifically to NL2Type \cite{Malik2019NL2Type:Information}.
+
+\input{tables/results.tex}
+
+\subsection{Models} \label{results:models}
+We presented three different architectures for our prediction model (section \ref{evaluation:experiments}. In Table \ref{table:results} we present the results. The underlined metric scores indicate the best score for each model. The bold metric scores indicate the best overall score. We use these scores to compare the performance of the models.
+
+Model C clearly outperforms models A and B in all metrics. The top-1 F1-score is 82.4\%, and for the top-3 it is 91.6\%. The top-3 recall is 91.9\%, this can be interpreted as the model predicts the correct type within its first three suggestions in 91.9\% of the cases it was asked to make a prediction for. 
+
+Model B performs poorly compared to model A and C. Using a GRU does not have a positive influence on the results. It is interesting to note that where model C performs best on dataset 1, model B does not benefit from the return expressions and performs better without them (dataset 4). 
+
+The performance of model A lies in between the performance of model B and C. Interestingly, this model performs best on the dataset with the lowest dimensions. Dataset 4 and 5 contain the same data, the only difference is that dataset 4 has an additional separator vector and twelve 0-vectors. The same impact can also be seen for model C when comparing dataset 4 and 5. A possible explanation could be that the learning process can converge faster because there is simply less to learn, however, we have not found a provable cause for this.
+
+\subsection{Input Elements Selection}
+We presented the elements of the datapoints of \dltpy{} and four variations (section \ref{evaluation:experiments}) that we compare with. In Table \ref{table:results} we present the results. For this comparison, we look at the results of model C, the best performing model.
+
+The results of dataset 2 and 3 are significantly worse than of dataset 1. This shows that the natural language contained in comments positively influences the type classification task. Interestingly, the performance of dataset 3 is slightly less good than of dataset 2, while dataset 2 contains more comments.
+
+Another observation from the results is that the predictions positively influence from including return expressions in the dataset. We see that the performance is less good when return expressions are not included (datasets 4 and 5) than when they are included (dataset 1).
+
+\subsection{Comparison to previous work}
+
+\input{tables/results_compare.tex}
+
+In this section, we compare our results against NL2Type \cite{Malik2019NL2Type:Information}. \dltpy{} operates in a similar way on similar data as NL2Type. However, NL2Type predicts types for JavaScript files and \dltpy{} predicts types for Python files. Also, \dltpy{} uses a different input representation (different feature lengths and return expressions as an addition) and a different word embedding size (14 instead of 100). This makes it interesting to compare our results against this work.
+
+From the results, we cannot observe that \dltpy{} significantly outperforms or underperforms NL2type (see Table \ref{table:results-compare}). It is, however, interesting to note that without return expressions (dataset 4), \dltpy{} would underperform. Another interesting observation is that the results did not have a negative impact on the significantly smaller word embedding size.  

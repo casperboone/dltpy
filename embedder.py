@@ -6,13 +6,6 @@ from time import time
 import config
 
 
-#CONFIG
-
-#LANGUAGE_EMBEDDING_OUTPUT_PATH = os.path.join(OUTPUT_EMBEDDINGS_DIRECTORY, 'w2v_language_model.bin')
-#CODE_EMBEDDING_OUTPUT_PATH = os.path.join(OUTPUT_EMBEDDINGS_DIRECTORY, 'w2v_code_model.bin')
-
-
-
 class HelperIterator:
     """
     Subclass for type Hinting the iterators listed below

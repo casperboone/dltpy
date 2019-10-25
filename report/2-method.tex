@@ -1,0 +1,95 @@
+\begin{figure*}[h]
+\centering
+\includegraphics[width=\textwidth]{"DLTPy flow".pdf}
+\caption{Overview of the process of training from annotated source code.}
+\label{figure:pipeline}
+\end{figure*}
+
+\section{Method} \label{method}
+\dltpy{} has two main phases: a training phase and a prediction phase. In this section, we first describe the steps involved in the training process, and then discuss how prediction works, given the trained model. The training process consists of multiple steps. First, we extract relevant training data from Python projects (section \ref{method:extract}). Next, we preprocess the training data by for instance lemmatizing the textual parts of the data (section \ref{method:preprocess}). The preprocessed training data is then filtered and only relevant functions are selected (section \ref{method:selection}). Then, we generate input vectors using word embeddings and one-hot encoding (section \ref{method:vector}). Finally, we train an RNN (section \ref{method:lstm}). After the training process has completed, the trained RNN can be used to make predictions for function types (section \ref{method:prediction}). 
+
+\subsection{Collecting Data from ASTs} \label{method:extract}
+For each Python project in our data set, we want to export relevant parts of functions. Every Python file is parsed to an abstract syntax tree (AST). From this AST, we find the functions within or outside a class in the Python file. For each function, we extract the following elements:
+\begin{itemize}
+    \item $n_f$: The name of the function
+    \item $d_f$: The docstring of the function
+    \item $c_f$: The comment of the function
+    \item $n_p$: A list of the names of the function parameters
+    \item $t_p$: A list of the types of the function parameters
+    \item $c_p$: A list of the comments describing function parameters
+    \item $e_r$: A list of the return expressions of the function
+    \item $t_r$: The return type of the function
+    \item $c_r$: The comment describing the return value
+\end{itemize}
+
+Together, these elements form the tuple $(n_f, d_f, c_f, n_p, t_p, c_p, e_r, t_r, c_r)$. Figure \ref{figure:pipeline}a shows a code sample, this sample is parsed and the information for the tuple is extracted as described in Figure \ref{figure:pipeline}b. This tuple is similar to the input data used in NL2Type \cite{Malik2019NL2Type:Information}, except for $d_f$ and $e_r$.
+
+$d_f$ is the docstring of the Python function. This docstring often contains a few lines of text describing the working of the function, and sometimes also contains information about the parameters or the return value. In some cases, a more structured format is used, such as ReST, Google, or NumPy style. These formats describe parameters and the return value, separately from the function description. In these cases, we can extract this information for $c_f$, $c_p$, and $c_r$. We extract these comments only if the docstring is one of the structured formats mentioned before.
+
+$e_r$ is a list of return expressions of the function. After the preprocessing step (section \ref{method:preprocess}), this contains a list of all the identifiers and keywords used in the return expressions. The intuition is that often variable names are returned and that these names may convey useful information. 
+
+\subsection{Preprocessing} \label{method:preprocess}
+The information in the tuple is still raw natural language text. To capture only the relevant parts of the text, we first preprocess the elements in the tuple. The preprocessing pipeline consists of four steps and is based on the preprocessing stage in \cite{Malik2019NL2Type:Information}:
+
+\begin{enumerate}
+    \item \textbf{Remove punctuation, line breaks, and digits} We replace all non-alphabetical characters. Line breaks are also removed to create a single piece of text. We replace a full stop that is not at the end of a sentence with a space. We do this to make sure that, for instance, an object field or function access is not treated as a sentence separator (for example \texttt{object.property} becomes \texttt{object property}).
+    \item \textbf{Tokenize} We tokenize sentences using spaces as a separator. Before tokenization, the underscores in snake case and camel case identifiers are converted to a space-separated sequence of words. 
+    \item \textbf{Lemmatize} We convert all inflected words to their lemma. For example, ``removing'' and ``removed'' become ``remove''.
+    \item \textbf{Remove stop words} We remove stopwords (such as ``was'', ``be'', ``and'', ``while'' and ``the'' \footnote{See https://gist.github.com/sebleier/554280 for a full list of stopwords}) from the sentences because these words are often less relevant and thus more importance can be given to non-stopwords. This step is not included in the pipeline for identifiers (function names, parameter names, and return expressions), considering that in the short sentences these identifiers form, stopwords are more relevant.
+\end{enumerate}
+
+An example of a preprocessed tuple is shown in Figure \ref{figure:pipeline}c.
+
+\subsection{Function Selection} \label{method:selection}
+After collecting and preprocessing the function tuples, we select relevant functions. We filter the set of functions on a few criteria.
+
+First, a function must have at least one type in $t_p$ or it must have $t_r$, otherwise, it cannot serve as training data. A function must also have at least one return expression in $r_e$, since we do not want to predict the type for a function that does not return anything.
+
+Furthermore, for functions where $n_p$ contains the parameter \texttt{self}, we remove this parameter from $n_p$, $t_p$ and $c_p$, since this parameter has a specific role for accessing the instance of the class in which the method is defined in. Therefore, the name of this parameter does not reflect any information about its type and is thus not relevant.
+
+Finally, we do not predict the types \texttt{None} (can be determined statically) and \texttt{Any} (is always correct). Thus, we do not consider a function for predicting a parameter type if the parameter \texttt{Any}, and a return type if the return type is \texttt{Any} or \texttt{None}.
+
+\subsection{Vector Representation} \label{method:vector}
+From the selected function tuples, we create a parameter datapoint for each parameter and a return datapoint. We convert these datapoints to a vector. We explain the structure of these vectors in \ref{method:vector:structure}.  All textual elements are converted using word embeddings (see \ref{method:vector:embeddings}), and types with one-hot encoded (see \ref{method:vector:types}).
+
+\subsubsection{Datapoints and Vector Structure} \label{method:vector:structure}
+
+\input{tables/vectors.tex}
+
+The format of the input vectors is shown in Table \ref{table:vector-param} for parameter datapoints, and in Table \ref{table:vector-return} for return datapoints. All elements of the features have size 100. This results in a 55 $\times$ 100 input vector.
+
+The lengths of the features are based on an analysis of the features in our dataset. The results are shown in Table \ref{table:feature-lengths}. A full analysis is available in our GitHub repository (see section \ref{evaluation:implementation}).
+
+\input{tables/feature_lengths.tex}
+
+The datapoint type indicates whether the vector represents a parameter or a vector. A separator is a 1-vector of size 100. For parameter datapoints, padding (0-vectors) is used to ensure that the vectors for both datapoints have the same dimensions.
+
+\subsubsection{Learning Embeddings} \label{method:vector:embeddings}
+It is important that semantically similar words result in vectors that are close to each other in the n-dimensional vector space, hence we cannot assign random vectors to words. Instead, we train an embeddings model that builds upon Word2Vec \cite{Mikolov2013EfficientSpace}. Since the meaning of certain words within the context of a (specific) programming language are different than the meaning of those words within the English language, we cannot use pre-trained embeddings.
+
+We train embeddings separately for comments and identifiers. Comments are often long (sequences of) sentences, while identifiers can be seen as short sentences. Similarly to \cite{Malik2019NL2Type:Information}, we train two embeddings, because the identifiers ``tend to contain more source code-specific jargon and abbreviations than comments''.
+
+\begin{notsw}
+Using the trained model, we convert all textual elements in the datapoints to sequences of vectors.
+
+For the training itself, all words that occur 5 times or less are not considered to prevent overfitting. Since Word2Vec learns the context of a word by considering a certain amount of neighbouring words in a sequence, this amount of set to 5.
+The dimension of the word embedding itself is found by counting all the unique words found in the comments and identifiers and taking the 4th root of the result as suggested in \cite{TensorFlowTeam2017IntroducingColumnss}. This results in a recommended dimension of 14.
+\end{notsw}
+
+
+\subsubsection{Representing Types}\label{method:vector:types}
+The parameter types and return type are not embedded, however, we also encode these elements as vectors. We use a one-hot encoding \cite{Neter1996AppliedModels} that encodes to vectors of length $|T_{frequent}|$, where $T_{frequent}$ is the set of types that most frequently occur within the dataset. We also add the type ``other'' to $T_{frequent}$ to represent all types not present in the set of most frequently occurring types. We only select the most frequent types because there is not enough training data for less frequent types, resulting in a less effective learning process. The resulting vector for a type has all zeros except at the location corresponding to the type, for example, the type \texttt{str} may be encoded as $[0, 1, 0, 0, ..., 0]$.
+
+We limit the set $T_{frequent}$ to the 1000 most frequent types, as this has shown to be an effective number in earlier work \cite{Malik2019NL2Type:Information}. We show the top 10 of the most frequent types in Table \ref{table:most-frequent-types}.
+
+\input{tables/most_frequent_types.tex}
+
+\subsection{Training the RNN} \label{method:lstm}
+Given the vector representations described in section (\ref{method:vector}) we want to learn a function that would map the input vectors $x$ of dimensionality k to one of the 1000 types T, hence that would create the mapping $\mathbb{R}^{x*k}->\mathbb{R}^{|T|}$. To learn this mapping, we train a recurrent neural network (RNN). An RNN has feedback connections, giving it memory about previous input and therefore the ability to process (ordered) sequences of text. This makes it a good choice when working with natural language information.
+
+We implement the RNN using LSTM units \cite{Gers1999LearningLSTM}. LSTM units have been successfully applied in NL2Type \cite{Malik2019NL2Type:Information}, where the choice for LSTMs is made based on the use for classification tasks similar to our problem. We describe the full details of the model in \ref{evaluation:experiments:models}.
+
+\subsection{Prediction using the trained RNN} \label{method:prediction}
+After training is done, the model can be used to predict the type for new, unseen, functions. The input to the model is similar to the input during the training phase. This means that first a function needs to be collected from an AST (section \ref{method:extract}), then the function elements need to be preprocessed (section \ref{method:preprocess}, and finally, the function must be represented as multiple vectors for the parameter types and for the return type as described in \ref{method:vector}.
+
+The model can now be queried for the input vectors to predict the corresponding types. The network outputs a set of likely types together with the individual probability of the correctness of these types.

@@ -1,0 +1,22 @@
+\begin{notsw}
+\section{Reflection}
+\textit{This section is added for IN4334 - Machine Learning for Software Engineering and should not be considered as a part of this paper.} \\
+
+\noindent
+During the project we faced the following challenges:
+
+\begin{itemize}
+    \item Because we are not using a ready-made dataset, we had to gather the data ourselves. This turned out to be quite complicated. The data fetching process as described in the paper takes quite a long time (to run), and because we, of course, did not get the pre-processing steps completely right the first time (or even the first three times), we had to redo the process a couple of times. Even after paralleling this process and running it on a cloud server instance, it still cost us a lot of time.
+    
+    \item It is not very easy to find typed Python projects. NL2Type uses Typescript projects which means they can easily filter on language, but we did not have that option. Therefore we looked at mypy dependents and hoped that they would have functions with type annotations. This was not always the case, only 11.8\% of the functions had types, and only 0.4\% made it into our ``complete'' dataset (after filtering on comments for instance). Initially we were only planning to select the top-$x$ projects, sorted by stars, but in the end, we needed the data of \textit{all} projects we found to come to a reasonably sized dataset.
+    
+    \item We expected to able to reuse more of NL2Type but found that not always all necessary details were mentioned or that the implementation was missing. Because of this, we had to spend more time on this than expected, giving us less time for new innovations.
+    
+    \item Python functions turn out to be much less consistently commented than functions in TypeScript. If they even have specific comments for parameters or return values, there are still multiple formats in which these can be reported. We spent some time on writing a parser for these different formats, or at least the most common ones.
+    
+    \item During the training phase, we had issues with PyTorch reporting CUDA issues. The issue had to do with memory allocation, which is definitely much more low level than the level we were working on and could control. Because of this issue, we were not able to get results for one of our model architectures and have left this architecture out.
+    
+    % \item We are sceptical about the models used in the original NL2Type paper. Because it uses 1.2 million parameters on a relatively small dataset, we are afraid of the possible overfitting, which is why choose to use smaller models. Overall this course has learned us review papers with a critical eye.   
+\end{itemize}
+
+\end{notsw}

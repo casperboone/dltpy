@@ -1,0 +1,15 @@
+\begin{table*}[]
+\centering
+\scriptsize
+\begin{tabular}{l r r r l}
+\toprule
+\textbf{Dataset}                            & \multicolumn{1}{l}{\textbf{Size}} & \multicolumn{1}{l}{\textbf{\begin{tabular}[l]{@{}l@{}}Parameter\\ Datapoints \end{tabular}}} & \multicolumn{1}{l}{\textbf{\begin{tabular}[l]{@{}l@{}}Return\\ Datapoints \end{tabular}}} & \textbf{Dimensions} \\ \midrule
+1 \tiny{Complete}                                    & 84,661                             & 64,690                                             & 19,971                                          & 55 $\times$ 14      \\ \hline
+2 \tiny{Optional parameter and return comment}       & 863,936                            & 719,581                                            & 144,355                                         & 55 $\times$ 14      \\ \hline
+3 \tiny{Optional docstring}                          & 1,018,787                          & 719,581                                            & 299,206                                         & 55 $\times$ 14      \\ \hline
+4 \tiny{Without return expressions}                  & 84,661                             & 64,690                                             & 19,971                                          & 55 $\times$ 14      \\ \hline
+5 \tiny{Without return expressions, lower dimension} & 84,661                             & 64,690                                             & 19,971                                          & 42 $\times$ 14      \\ \bottomrule
+\end{tabular}
+\caption{The sizes of the datasets used to evaluate \dltpy.}
+\label{table:datasets}
+\end{table*}

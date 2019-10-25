@@ -1,0 +1,120 @@
+\documentclass[10pt, twocolumn]{article}
+\usepackage[numbers]{natbib}
+\usepackage[a4paper]{geometry}
+\usepackage[myheadings]{fullpage}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{graphicx, wrapfig, subcaption, setspace, booktabs}
+\usepackage[T1]{fontenc}
+\usepackage[font=small, labelfont=bf]{caption}
+\usepackage{fourier}
+\usepackage[protrusion=true, expansion=true]{microtype}
+\usepackage[english]{babel}
+\usepackage{sectsty}
+\usepackage{url, lipsum}
+\usepackage{tgbonum}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage[normalem]{ulem}
+\useunder{\uline}{\ul}{}
+\usepackage{tabularx}
+\usepackage[utf8]{inputenc}
+\usepackage{abstract}
+\usepackage{enumitem}
+
+\usepackage[most]{tcolorbox}
+\newtcolorbox{rqframe}[1][]{
+  enhanced,
+  arc=2pt,
+  outer arc=2pt,
+  colback=white,
+  boxrule=1pt,
+  #1
+}
+
+\newcommand{\mydate}{November, 2019}
+
+\usepackage{geometry}
+\geometry{
+    a4paper,
+    left=20mm,
+    top=30mm,
+    right=20mm,
+    bottom=30mm,
+}
+
+\newcommand\dltpy{DLTPy}
+
+\newcommand\todo[1]{\textcolor{red}{TODO: #1}}
+\newcommand\todointernal[1]{\textcolor{blue}{TODO: #1}}
+% \newcommand\todointernal[1]{}
+% \newenvironment{notsw}[1]{\leavevmode\color{olive}\ignorespaces #1}
+\newenvironment{notsw}[1]{#1}
+
+\newcommand{\HRule}[1]{\rule{\linewidth}{#1}}
+\newcommand{\keywords}[1]{\textbf{\textit{Index terms---}} \textit{#1}}
+
+\begin{document}
+% \sectionfont{\fontsize{11pt}{11pt}\selectfont}
+
+% \textbf{Paper starts on the next page} \\\\
+% \textit{Note for the reviewer: the parts in olive green are not written by Casper Boone, all other parts are.}
+
+\fontfamily{cmr}\selectfont
+\title{ \normalsize \textsc{}
+		\HRule{0.5pt} \\
+		\Large \textbf{\uppercase{\dltpy: Deep Learning Type Inference of Python Function Signatures using Natural Language Context}}
+		\HRule{2pt}}
+		
+\author{\small{}
+	    Casper Boone \\
+	    \small Delft University of Technology\\
+	    \texttt{c.c.boone@student.tudelft.nl}
+        \and
+        \small{}
+	    Niels de Bruin \\
+	    \small Delft University of Technology\\
+	    \texttt{d.j.m.debruin@student.tudelft.nl}
+        \and
+        \small{}
+	    Arjan Langerak \\
+	    \small Delft University of Technology\\
+	    \texttt{a.c.langerak@student.tudelft.nl}
+        \and
+        \small{}
+	    Fabian Stelmach \\
+	    \small Delft University of Technology\\
+	    \texttt{f.p.stelmach@student.tudelft.nl}
+}
+
+\date{\mydate}
+
+\twocolumn[
+\begin{@twocolumnfalse}
+\maketitle
+\input{0-abstract.tex}
+\end{@twocolumnfalse}
+]
+
+\input{1-introduction.tex}
+
+\input{2-method.tex}
+
+\input{3-evaluation.tex}
+
+\input{4-results.tex}
+
+\input{5-conclusion.tex}
+
+\input{6-reflection.tex}
+
+
+\bibliographystyle{IEEEtran}
+\setlength{\bibsep}{0em}
+\renewcommand*{\bibfont}{\small}
+
+\bibliography{references}
+
+\end{document}

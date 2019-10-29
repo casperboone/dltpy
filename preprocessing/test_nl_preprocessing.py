@@ -1,6 +1,6 @@
 import unittest
-from extractor import Function
-from nl_preprocessing import NLPreprocessor
+from preprocessing.extractor import Function
+from preprocessing.nl_preprocessing import NLPreprocessor
 
 
 class TestExtractor(unittest.TestCase):
@@ -114,13 +114,13 @@ class TestExtractor(unittest.TestCase):
 
         self.assertEqual(Function(
             'validate clip with axis',
-            'summary line. nd frame clip call via numpy library third parameter signature . take ndarray check axis '
-            + 'parameter instance ndarray. since axis either integer none param ndarray axis first parameter. param '
-            + 'list args second parameter. return description return value rtype bool',
+            'summary line nd frame clip call via numpy library third parameter signature take ndarray check axis '
+            + 'parameter instance ndarray since axis either integer none param ndarray axis first parameter param '
+            + 'list args second parameter return description return value rtype bool',
             'summary line',
             ['axis', 'args', 'kwargs'],
             ['ndarray', 'list', 'list'],
-            ['the first parameter', 'the second parameter', ''],
+            ['first parameter', 'second parameter', ''],
             'ndarray',
             ['axis'],
             'description return value'

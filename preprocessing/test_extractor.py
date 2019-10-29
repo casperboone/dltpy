@@ -1,5 +1,5 @@
 import unittest
-from extractor import Extractor, Function
+from preprocessing.extractor import Extractor, Function
 
 
 class TestExtractor(unittest.TestCase):
@@ -26,7 +26,7 @@ class TestExtractor(unittest.TestCase):
     }
 
     def setUp(self):
-        with open("./resources/example.py") as file:
+        with open("./../resources/example.py") as file:
             program = file.read()
         self.fns = Extractor().extract(program)
 

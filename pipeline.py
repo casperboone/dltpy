@@ -24,7 +24,7 @@ if not os.path.isdir('./output'):
     os.mkdir('./output')
 
 
-# CONFIG
+# LOCAL CONFIG
 OUTPUT_DIRECTORY = os.path.join('./output', str(int(time.time())))
 USE_CACHE = True
 

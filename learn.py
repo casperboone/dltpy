@@ -9,40 +9,66 @@ import torch.nn as nn
 from sklearn.metrics import classification_report
 from torch.utils import data
 from torch.utils.data import DataLoader
+from typing import Tuple
 
-MODEL_DIR = "./output/models/"
-RETURN_DATAPOINTS_X = "./output/vectors/return_datapoints_x.npy"
-RETURN_DATAPOINTS_Y = "./output/vectors/return_datapoints_y.npy"
-PARAM_DATAPOINTS_X = "./output/vectors/param_datapoints_x.npy"
-PARAM_DATAPOINTS_Y = "./output/vectors/param_datapoints_y.npy"
+import config
+
 
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-def count_model_parameters(model):
+def count_model_parameters(model: nn.Module) -> int:
+    """
+    Count the amount of parameters of a model
+    :param model:
+    :return:
+    """
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-def store_model(model, filename, model_dir=MODEL_DIR):
+def store_model(model: nn.Module, filename: str, model_dir=config.MODEL_DIR) -> None:
+    """
+    Store the model to a pickle file
+    :param model: the model itself
+    :param filename: name of the file
+    :param model_dir: directory in which to write to file to
+    :return:
+    """
     os.makedirs(model_dir, exist_ok=True)
     with open(os.path.join(model_dir, filename), 'wb') as f:
         pickle.dump(model, f)
 
 
-def store_json(model, filename, model_dir=MODEL_DIR):
+def store_json(model: nn.Module, filename: str, model_dir=config.MODEL_DIR) -> None:
+    """
+    Store the model as a json file.
+    :param model: the model itself
+    :param filename: name of the file
+    :param model_dir: directory in which to write to file to
+    :return:
+    """
     os.makedirs(model_dir, exist_ok=True)
     with open(os.path.join(model_dir, filename), 'w') as f:
         f.write(json.dumps(model))
 
 
-def load_model(filename, model_dir=MODEL_DIR):
+def load_model(filename: str, model_dir=config.MODEL_DIR) -> nn.Module:
+    """
+    Load the model from a pickle.
+    :param filename: name of the file
+    :param model_dir: directory in which the file is located
+    :return:
+    """
     with open(os.path.join(model_dir, filename), 'rb') as f:
         return pickle.load(f)
 
 
 class BiRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, bidirectional=True):
+    """
+    The BiRNN represents the implementation of the Bidirectional RNN model
+    """
+    def __init__(self, input_size: int, hidden_size: int, num_layers: int, bidirectional=True) -> None:
         super(BiRNN, self).__init__()
 
         self.hidden_size = hidden_size
@@ -73,7 +99,10 @@ class BiRNN(nn.Module):
 
 
 class GRURNN(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, bidirectional=True):
+    """
+    The GRURNN represents the implementation of the GRU RNN model
+    """
+    def __init__(self, input_size: int, hidden_size: int, num_layers: int, bidirectional=True) -> None:
         super(GRURNN, self).__init__()
 
         self.hidden_size = hidden_size
@@ -103,7 +132,15 @@ class GRURNN(nn.Module):
         return x
 
 
-def load_dataset(X, y, batch_size, split=0.8):
+def load_dataset(X, y, batch_size: int, split=0.8) -> Tuple:
+    """
+    Load and return a specific dataset
+    :param X: x input part of the dataset
+    :param y: y input part of the dataset
+    :param batch_size: size to use for the batching
+    :param split: amount of data to split (between 0 and 1)
+    :return: tuple consisting out of a training and test set
+    """
     train_data = torch.utils.data.TensorDataset(X, y)
 
     train_size = int(split * len(train_data))
@@ -117,13 +154,20 @@ def load_dataset(X, y, batch_size, split=0.8):
     return train_loader, test_loader
 
 
-def load_data_tensors(filename_X, filename_y, limit):
+def load_data_tensors(filename_X: str, filename_y: str, limit: int) -> Tuple:
+    """
+    Load the tensor dataset
+    :param filename_X: x input part of the dataset
+    :param filename_y: y input part of the dataset
+    :param limit: max amount of y data to load in
+    :return: Tuple (X,y) consisting out of the tensor dataset
+    """
     X = torch.from_numpy(np.load(filename_X)[0:limit]).float()
     y = torch.from_numpy(np.argmax(np.load(filename_y), axis=1)[0:limit]).long()
     return X, y
 
 
-def make_batch_prediction(model, X, top_n=1):
+def make_batch_prediction(model: nn.Module, X, top_n=1):
     model.eval()
     with torch.no_grad():
         # Compute model output
@@ -194,7 +238,7 @@ def train_loop(model: nn.Module, data_loader: DataLoader, model_config: dict, mo
         if epoch % save_each_x_epochs == 0 or (epoch == model_config['num_epochs']):
             print("Storing model!")
             store_model(model, f"model_{model.__class__.__name__}_e_{epoch}_l_{loss.item():0.10f}.h5",
-                        model_dir=os.path.join(MODEL_DIR, model_store_dir))
+                        model_dir=os.path.join(config.MODEL_DIR, model_store_dir))
 
     return losses
 
@@ -265,12 +309,12 @@ def load_m4():
     return model, model_config
 
 
-def get_datapoints(dataset: str):
+def get_datapoints(dataset: str) -> Tuple[str, str, str, str]:
     base = f"./input_datasets/{dataset}/vectors/"
     return base + "return_datapoints_x.npy", base + "return_datapoints_y.npy", base + "param_datapoints_x.npy", base + "param_datapoints_y.npy"
 
 
-def report(y_true, y_pred, top_n, filename):
+def report(y_true, y_pred, top_n, filename: str):
     # Fix the predictions if the true value is in top-n predictions
     y_pred_fixed = top_n_fix(y_true, y_pred, top_n)
 
@@ -280,7 +324,7 @@ def report(y_true, y_pred, top_n, filename):
     store_json(report, f"{filename}.json", "./output/reports/json")
 
 
-def report_loss(losses, filename):
+def report_loss(losses, filename: str):
     store_model(losses, f"{filename}.pkl", "./output/reports/pkl")
     store_json({"loss": list(losses)}, f"{filename}.json", "./output/reports/json")
 

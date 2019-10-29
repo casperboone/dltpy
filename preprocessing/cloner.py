@@ -4,7 +4,7 @@ import shutil
 
 
 class Cloner:
-    def clone(self, author: str, repo: str, destination: str = './projects') -> str:
+    def clone(self, author: str, repo: str, destination: str = '../projects') -> str:
         """
         Clone projects from GitHub
 

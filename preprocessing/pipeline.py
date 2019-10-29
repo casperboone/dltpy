@@ -8,11 +8,11 @@ import traceback
 import pandas as pd
 from joblib import delayed
 
-from cloner import Cloner
-from extractor import Extractor, ParseError
-from nl_preprocessing import NLPreprocessor
-from project_filter import ProjectFilter
-from utils import ParallelExecutor
+from preprocessing.cloner import Cloner
+from preprocessing.extractor import Extractor, ParseError
+from preprocessing.nl_preprocessing import NLPreprocessor
+from preprocessing.project_filter import ProjectFilter
+from preprocessing.utils import ParallelExecutor
 
 cloner = Cloner()
 project_filter = ProjectFilter()

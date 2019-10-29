@@ -1,7 +1,8 @@
 import unittest
 import tempfile
 from os import path
-from project_filter import ProjectFilter
+
+from preprocessing.project_filter import ProjectFilter
 
 
 class TestCloner(unittest.TestCase):

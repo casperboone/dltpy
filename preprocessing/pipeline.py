@@ -153,7 +153,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--projects_file',
                     help='json file containing GitHub projects',
                     type=str,
-                    default='./resources/mypy-dependents-by-stars.json')
+                    default='../resources/mypy-dependents-by-stars.json')
 parser.add_argument('--limit',
                     help='limit the number of projects for which the pipeline should run',
                     type=int,
@@ -165,7 +165,7 @@ parser.add_argument("--jobs",
 parser.add_argument("--output_dir",
                     help="output dir for the pipeline",
                     type=str,
-                    default=os.path.join('./output', str(int(time.time()))))
+                    default=os.path.join('../output', str(int(time.time()))))
 parser.add_argument('--start',
                     help='start position within projects list',
                     type=int,

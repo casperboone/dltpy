@@ -6,7 +6,7 @@ and on the semantic elements of identifiers in the return expressions.  Using th
 different elements, we have trained a classifier that predicts types. We use a recurrent neural network (RNN)
 with a Long Short-Term Memory (LSTM) architecture.
 
-_Read our [paper](paper.pdf) for the full details._
+_Read our [paper](https://arxiv.org/abs/1912.00680) for the full details._
 
 ## Components
 

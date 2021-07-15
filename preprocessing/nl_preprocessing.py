@@ -6,9 +6,9 @@ from preprocessing.extractor import Function
 import re
 import nltk
 
-nltk.download('averaged_perceptron_tagger')
-nltk.download('stopwords')
-nltk.download('wordnet')
+#nltk.download('averaged_perceptron_tagger')
+#nltk.download('stopwords')
+#nltk.download('wordnet')
 
 # Precompile often used regex
 first_cap_regex = re.compile('(.)([A-Z][a-z]+)')
@@ -29,7 +29,10 @@ class NLPreprocessor:
             arg_descrs=[self.process_sentence(arg_descr) for arg_descr in function.arg_descrs],
             return_type=function.return_type,
             return_expr=[self.process_identifier(expr.replace('return ', '')) for expr in function.return_expr],
-            return_descr=self.process_sentence(function.return_descr)
+            return_descr=self.process_sentence(function.return_descr),
+            lineno=function.lineno,
+            full_name=function.full_name,
+            arg_full_names=function.arg_full_names
         )
 
     def process_sentence(self, sentence: str) -> Optional[str]:

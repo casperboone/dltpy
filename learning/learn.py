@@ -13,6 +13,7 @@ from typing import Tuple
 
 import config
 
+import pandas as pd
 
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -68,6 +69,7 @@ class BiRNN(nn.Module):
     """
     The BiRNN represents the implementation of the Bidirectional RNN model
     """
+
     def __init__(self, input_size: int, hidden_size: int, num_layers: int, bidirectional=True) -> None:
         super(BiRNN, self).__init__()
 
@@ -102,6 +104,7 @@ class GRURNN(nn.Module):
     """
     The GRURNN represents the implementation of the GRU RNN model
     """
+
     def __init__(self, input_size: int, hidden_size: int, num_layers: int, bidirectional=True) -> None:
         super(GRURNN, self).__init__()
 
@@ -146,7 +149,7 @@ def load_dataset(X, y, batch_size: int, split=0.8) -> Tuple:
     train_size = int(split * len(train_data))
     test_size = len(train_data) - train_size
 
-    train_dataset, test_dataset = torch.utils.data.random_split(train_data, [train_size, test_size])
+    train_dataset, test_dataset = torch.utils.data.random_split(train_data, [train_size, test_size], torch.Generator().manual_seed(42))
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size)
@@ -162,8 +165,9 @@ def load_data_tensors(filename_X: str, filename_y: str, limit: int) -> Tuple:
     :param limit: max amount of y data to load in
     :return: Tuple (X,y) consisting out of the tensor dataset
     """
-    X = torch.from_numpy(np.load(filename_X)[0:limit]).float()
-    y = torch.from_numpy(np.argmax(np.load(filename_y), axis=1)[0:limit]).long()
+    X = torch.from_numpy(np.load(filename_X)).float()
+    y_load = np.load(filename_y)
+    y = torch.from_numpy(np.argmax(y_load, axis=1)).long()
     return X, y
 
 
@@ -180,18 +184,17 @@ def make_batch_prediction(model: nn.Module, X, top_n=1):
 
 
 def evaluate(model: nn.Module, data_loader: DataLoader, top_n=1):
-    true_labels = []
     predicted_labels = []
 
     for i, (batch, labels) in enumerate(data_loader):
         _, batch_labels = make_batch_prediction(model, batch.to(device), top_n=top_n)
         predicted_labels.append(batch_labels)
-        true_labels.append(labels)
 
-    true_labels = np.hstack(true_labels)
+    #print(true_labels)
     predicted_labels = np.vstack(predicted_labels)
 
-    return true_labels, predicted_labels
+    return predicted_labels
+
 
 def top_n_fix(y_true, y_pred, n):
     best_predicted = np.empty_like(y_true)
@@ -202,6 +205,7 @@ def top_n_fix(y_true, y_pred, n):
             best_predicted[i] = y_pred[i, 0]
 
     return best_predicted
+
 
 def train_loop(model: nn.Module, data_loader: DataLoader, model_config: dict, model_store_dir, save_each_x_epochs=25):
     model.train()
@@ -242,6 +246,7 @@ def train_loop(model: nn.Module, data_loader: DataLoader, model_config: dict, mo
 
     return losses
 
+
 def load_m1():
     model_config = {
         'sequence_length': 55,
@@ -272,7 +277,7 @@ def load_m2():
     }
     # Load the model
     model = GRURNN(model_config['input_size'], model_config['hidden_size'],
-                  model_config['num_layers'], model_config['bidirectional']).to(device)
+                   model_config['num_layers'], model_config['bidirectional']).to(device)
     return model, model_config
 
 
@@ -292,6 +297,7 @@ def load_m3():
                   model_config['num_layers'], model_config['bidirectional']).to(device)
     return model, model_config
 
+
 def load_m4():
     model_config = {
         'sequence_length': 55,
@@ -309,9 +315,14 @@ def load_m4():
     return model, model_config
 
 
-def get_datapoints(dataset: str) -> Tuple[str, str, str, str]:
-    base = f"../input_datasets/{dataset}/vectors/"
-    return base + "return_datapoints_x.npy", base + "return_datapoints_y.npy", base + "param_datapoints_x.npy", base + "param_datapoints_y.npy"
+def get_datapoints(dataset: str = "") -> Tuple[str, str, str, str, str, str]:
+    base = f"./output/vectors/"
+    return base + "return_datapoints_x.npy", \
+           base + "return_datapoints_y.npy", \
+           base + "param_datapoints_x.npy", \
+           base + "param_datapoints_y.npy", \
+           base + "param_datapoints_y_src.npy", \
+           base + "return_datapoints_y_src.npy"
 
 
 def report(y_true, y_pred, top_n, filename: str):
@@ -329,47 +340,82 @@ def report_loss(losses, filename: str):
     store_json({"loss": list(losses)}, f"{filename}.json", "./output/reports/json")
 
 
+def get_enc_to_type_mapping():
+    df = pd.read_csv('./output/ml_inputs/_most_frequent_types.csv', index_col=0)
+    types_dict = dict()
+
+    def add_to_dict(row: pd.Series):
+        types_dict[row.enc] = row.type
+
+    df.apply(lambda row: add_to_dict(row), axis=1)
+
+    return types_dict
+
+
 if __name__ == '__main__':
     print(f"-- Using {device} for training.")
 
-    top_n_pred = [1,2,3]
-    models = [load_m4]
-    datasets = ["2_cf_cr_optional", "3_cp_cf_cr_optional", "4_complete_without_return_expressions"]
-    n_repetitions = 3
+    top_n_pred = [1, 2, 3]
+    models = [load_m3]
+    dataset = "dataset"
+    n_repetitions = 1
 
-    for dataset in datasets:
-        # Load data
-        RETURN_DATAPOINTS_X, RETURN_DATAPOINTS_Y, PARAM_DATAPOINTS_X, PARAM_DATAPOINTS_Y = get_datapoints(dataset)
-        print(f"-- Loading data: {dataset}")
-        Xr, yr = load_data_tensors(RETURN_DATAPOINTS_X, RETURN_DATAPOINTS_Y, limit=-1)
-        Xp, yp = load_data_tensors(PARAM_DATAPOINTS_X, PARAM_DATAPOINTS_Y, limit=-1)
-        X = torch.cat((Xp, Xr))
-        y = torch.cat((yp, yr))
+    RETURN_DATAPOINTS_X, RETURN_DATAPOINTS_Y, PARAM_DATAPOINTS_X, PARAM_DATAPOINTS_Y, SRC_PARAM, SRC_RETURN \
+        = get_datapoints(dataset)
+    print(f"-- Loading data: {dataset}")
+    Xr, yr = load_data_tensors(RETURN_DATAPOINTS_X, RETURN_DATAPOINTS_Y, limit=-1)
+    Xp, yp = load_data_tensors(PARAM_DATAPOINTS_X, PARAM_DATAPOINTS_Y, limit=-1)
+    X = torch.cat((Xp, Xr))
+    y = torch.cat((yp, yr))
 
-        for load_model in models:
-            for i in range(n_repetitions):
-                model, model_config = load_model()
+    yp_src = np.load(SRC_PARAM, allow_pickle=True)
+    yr_src = np.load(SRC_RETURN, allow_pickle=True)
 
-                print(f"-- Model Loaded: {model} with {count_model_parameters(model)} parameters.")
+    y_src = np.vstack((yp_src, yr_src))
 
-                train_loader, test_loader = load_dataset(X, y, model_config['batch_size'], split=0.8)
+    types_dict = get_enc_to_type_mapping()
 
-                # Start training
-                losses = train_loop(model, train_loader, model_config, model_store_dir=f"{load_model.__name__}/{dataset}/{i}"+str(int(time.time())))
+    model, model_config = load_m3()
 
-                # print("-- Loading model")
-                # model = load_model('1571306801/model_BiRNN_e_9_l_1.8179169893.h5')
+    print(f"-- Model Loaded: {model} with {count_model_parameters(model)} parameters.")
 
-                # Evaluate model performance
-                y_true, y_pred = evaluate(model, test_loader, top_n=max(top_n_pred))
+    train_loader, test_loader = load_dataset(X, y, model_config['batch_size'], split=0.8)
 
-                # If the prediction is "other" - ignore the result
-                idx_of_other = pickle.load(open(f'./input_datasets/{dataset}/ml_inputs/label_encoder.pkl', 'rb')).transform(['other'])[0]
-                idx = (y_true != idx_of_other) & (y_pred[:, 0] != idx_of_other)
+    n = len(X)
+    train_size = int(0.8 * n)
+    test_size = n - train_size
+    print(train_size, test_size)
+    _, test_idx = torch.utils.data.random_split(range(n), [train_size, test_size], torch.Generator().manual_seed(42))
+    y_src_test = y_src[test_idx.indices]
 
-                for top_n in top_n_pred:
-                    filename = f"{load_model.__name__}_{dataset}_{i}_{top_n}"
-                    report(y_true, y_pred, top_n, filename)
-                    report(y_true[idx], y_pred[idx], top_n, f"{filename}_unfiltered")
+    # Start training
+    losses = train_loop(model, train_loader, model_config,
+                        model_store_dir=f"{load_model.__name__}/{dataset}" + str(int(time.time())))
 
-                report_loss(losses, f"{load_model.__name__}_{dataset}_{i}_loss")
+    # print("-- Loading model")
+
+    # Evaluate model performance
+    y_true, y_pred = evaluate(model, test_loader, top_n=max(top_n_pred))
+
+    # If the prediction is "other" - ignore the result
+    idx_of_other = pickle.load(open(f'./output/ml_inputs/label_encoder.pkl', 'rb')).transform(['other'])[0]
+    idx = (y_true != idx_of_other) & (y_pred[:, 0] != idx_of_other)
+
+    types_true = np.array([[types_dict[type] for type in y_true[idx]]])
+    types_pred = np.array([[types_dict[type[0]] for type in y_pred[idx]]])
+
+    true_types_src = np.concatenate((y_src_test[idx], types_true.T), axis=1)
+    pred_types_src = np.concatenate((y_src_test[idx], types_pred.T), axis=1)
+
+    with open("./output/reports/types/true.csv", "w") as f:
+        ans = "file;lineno;name;type;element\n"
+        for types in true_types_src:
+            ans += f'{types[0]};{types[1]};{types[2]};{types[4]};{types[3]}\n'
+        f.write(ans)
+
+    with open("./output/reports/types/predicted.csv", "w") as f:
+        ans = "file;lineno;name;type;element\n"
+        for types in pred_types_src:
+            ans += f'{types[0]};{types[1]};{types[2]};{types[4]};{types[3]}\n'
+        f.write(ans)
+

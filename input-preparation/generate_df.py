@@ -5,6 +5,7 @@ from typing import Tuple
 import pandas as pd
 import numpy as np
 import pickle
+import math
 
 from pandas import DataFrame
 from sklearn import preprocessing
@@ -93,22 +94,23 @@ def filter_return_datapoints(df: pd.DataFrame) -> pd.DataFrame:
     :param df: dataframe to use
     :return: filtered dataframe
     """
-    print(f"Functions before dropping on return type {len(df)}")
-    df = df.dropna(subset=['return_type'])
-    print(f"Functions after dropping on return type {len(df)}")
+    #print(f"Functions before dropping on return type {len(df)}")
+    #df = df.dropna(subset=['return_type'])
+    #print(f"Functions after dropping on return type {len(df)}")
 
-    print(f"Functions before dropping nan, None, Any return type {len(df)}")
-    to_drop = np.invert((df['return_type'] == 'nan') | (df['return_type'] == 'None') | (df['return_type'] == 'Any'))
-    df = df[to_drop]
-    print(f"Functions after dropping nan return type {len(df)}")
+    #print(f"Functions before dropping nan, None, Any return type {len(df)}")
+    #to_drop = np.invert((df['return_type'] == 'nan') | (df['return_type'] == 'None') | (df['return_type'] == 'Any'))
+    #df = df[to_drop]
+    #print(f"Functions after dropping nan return type {len(df)}")
+    df['return_type'] = 'bool'
 
-    print(f"Functions before dropping on empty docstring, function comment and return comment {len(df)}")
-    df = df.dropna(subset=['docstring', 'func_descr', 'return_descr'])
-    print(f"Functions after dropping on empty docstring, function comment and return comment {len(df)}")
+    #print(f"Functions before dropping on empty docstring, function comment and return comment {len(df)}")
+    #df = df.dropna(subset=['docstring', 'func_descr', 'return_descr'])
+    #print(f"Functions after dropping on empty docstring, function comment and return comment {len(df)}")
 
-    print(f"Functions before dropping on empty return expression {len(df)}")
-    df = df[df['return_expr'].apply(lambda x: len(literal_eval(x))) > 0]
-    print(f"Functions after dropping on empty return expression {len(df)}")
+    #print(f"Functions before dropping on empty return expression {len(df)}")
+    #df = df[df['return_expr'].apply(lambda x: len(literal_eval(x))) > 0]
+    #print(f"Functions after dropping on empty return expression {len(df)}")
 
     return df
 
@@ -126,19 +128,21 @@ def gen_argument_df(df: pd.DataFrame) -> pd.DataFrame:
         for p_i, arg_name in enumerate(literal_eval(row['arg_names'])):
             if arg_name != 'self':
                 arg_type = literal_eval(row['arg_types'])[p_i]
-                if arg_type == '' or arg_type == 'Any' or arg_type == 'None':
-                    continue
+                if arg_type == '' or arg_type == 'Any':
+                    arg_type = 'Any'
+                arg_type = 'bool'
                 arg_descr = literal_eval(row['arg_descrs'])[p_i]
-                if arg_descr == '':
-                    continue
+                #if arg_descr == '':
+                #    continue
+                arg_full_name = literal_eval(row['arg_full_names'])[p_i]
 
-                arguments.append([row['name'], arg_name, arg_type, arg_descr])
+                arguments.append([row['name'], arg_name, arg_type, arg_descr, row['lineno'], row['file'], arg_full_name])
 
-    return pd.DataFrame(arguments, columns=['func_name', 'arg_name', 'arg_type', 'arg_comment'])
+    return pd.DataFrame(arguments, columns=['func_name', 'arg_name', 'arg_type', 'arg_comment', 'lineno', 'file', 'full_name'])
 
 
 def encode_types(df: pd.DataFrame, df_args: pd.DataFrame, threshold: int = 999) -> Tuple[
-    DataFrame, DataFrame, LabelEncoder]:
+    DataFrame, DataFrame]:
     """
     Encode the dataframe types to integers.
     :param df: dataframe with function data
@@ -146,7 +150,8 @@ def encode_types(df: pd.DataFrame, df_args: pd.DataFrame, threshold: int = 999) 
     :param threshold: number of common types to keep
     :return: dataframe with types encoded and the labels encoder used for it.
     """
-    le = preprocessing.LabelEncoder()
+    with open(config.LABEL_ENCODER_PATH, 'rb') as f:
+        le = pickle.load(f)
 
     # All types
     return_types = df['return_type'].values
@@ -170,14 +175,14 @@ def encode_types(df: pd.DataFrame, df_args: pd.DataFrame, threshold: int = 999) 
     # All types transformed
     return_types = df['return_type_t'].values
     arg_types = df_args['arg_type_t'].values
-    all_types = np.concatenate((return_types, arg_types), axis=0)
-    le.fit(all_types)
+    #all_types = np.concatenate((return_types, arg_types), axis=0)
+    #le.fit(all_types)
 
-    print("Store type mapping with counts")
-    pd.DataFrame(
-        list(zip(le.transform(common_types), common_types, common_types_counts)),
-        columns=['enc', 'type', 'count']
-    ).to_csv(TYPES_FILE)
+    #print("Store type mapping with counts")
+    #pd.DataFrame(
+    #    list(zip(le.transform(common_types), common_types, common_types_counts)),
+    #    columns=['enc', 'type', 'count']
+    #).to_csv(TYPES_FILE)
 
     # transform all type
     print("Transforming return types")
@@ -186,7 +191,7 @@ def encode_types(df: pd.DataFrame, df_args: pd.DataFrame, threshold: int = 999) 
     print("Transforming args types")
     df_args['arg_type_enc'] = le.transform(arg_types)
 
-    return df, df_args, le
+    return df, df_args
 
 
 if __name__ == '__main__':
@@ -219,11 +224,11 @@ if __name__ == '__main__':
 
     # Encode types as int
     print("Encoding types")
-    df, df_params, label_encoder = encode_types(df, df_params)
+    df, df_params = encode_types(df, df_params)
 
-    print("Storing label encoder")
-    with open(config.LABEL_ENCODER_PATH, 'wb') as file:
-        pickle.dump(label_encoder, file)
+    #print("Storing label encoder")
+    #with open(config.LABEL_ENCODER_PATH, 'wb') as file:
+    #    pickle.dump(label_encoder, file)
 
     # Add argument names as a string except self
     df['arg_names_str'] = df['arg_names'].apply(lambda l: " ".join([v for v in l if v != 'self']))
@@ -232,7 +237,7 @@ if __name__ == '__main__':
     df['return_expr_str'] = df['return_expr'].apply(lambda l: " ".join([re.sub(r"self\.?", '', v) for v in l]))
 
     # Drop all columns useless for the ML algorithms
-    df = df.drop(columns=['file', 'author', 'repo', 'has_type', 'arg_names', 'arg_types', 'arg_descrs', 'return_expr'])
+    df = df.drop(columns=['author', 'repo', 'has_type', 'arg_names', 'arg_types', 'arg_descrs', 'return_expr'])
 
     # Store the dataframes
     df.to_csv(config.ML_RETURN_DF_PATH, index=False)

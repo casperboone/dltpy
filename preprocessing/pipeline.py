@@ -3,7 +3,9 @@ import json
 import os
 import shutil
 import time
+import config
 import traceback
+from strip_hints import strip_file_to_string
 
 import pandas as pd
 from joblib import delayed
@@ -23,9 +25,8 @@ preprocessor = NLPreprocessor()
 if not os.path.isdir('./output'):
     os.mkdir('./output')
 
-
 # LOCAL CONFIG
-OUTPUT_DIRECTORY = os.path.join('./output', str(int(time.time())))
+OUTPUT_DIRECTORY = os.path.join('./output')
 USE_CACHE = True
 
 
@@ -56,7 +57,7 @@ def get_project_filename(project) -> str:
     :param project: the project dict
     :return: return filename
     """
-    return os.path.join(OUTPUT_DIRECTORY, f"{project['author']}{project['repo']}-functions.csv")
+    return os.path.join(config.DATA_FILES_DIR, f"{project['author']}{project['repo']}-functions.csv")
 
 
 def write_project(project) -> None:
@@ -93,8 +94,8 @@ def run_pipeline(projects: list) -> None:
     """
     Run the pipeline (clone, filter, extract, remove) for all given projects
     """
-    ParallelExecutor(n_jobs=args.jobs)(total=len(projects))(
-        delayed(process_project)(i, project) for i, project in enumerate(projects, start=args.start))
+    ParallelExecutor(n_jobs=1)(total=len(projects))(
+       delayed(process_project)(i, project) for i, project in enumerate(projects, start=args.start))
 
 
 def process_project(i, project):
@@ -102,17 +103,19 @@ def process_project(i, project):
         project_id = f'{project["author"]}/{project["repo"]}'
         print(f'Running pipeline for project {i} {project_id}')
 
-        if os.path.exists(get_project_filename(project)) and USE_CACHE:
-            print(f"Found cached copy for project {project_id}")
-            return
+        # if os.path.exists(get_project_filename(project)) and USE_CACHE:
+        #    print(f"Found cached copy for project {project_id}")
+        #    return
 
         project['files'] = []
 
-        if 'repoUrl' in project:
-            print(f'Cloning for {project_id}...')
-            raw_project_directory = cloner.clone(project["author"], project["repo"])
-        else:
-            raw_project_directory = project["directory"]
+        # if 'repoUrl' in project:
+        #    print(f'Cloning for {project_id}...')
+        #    raw_project_directory = cloner.clone(project["author"], project["repo"])
+        # else:
+        #    raw_project_directory = project["directory"]
+
+        raw_project_directory = f'./project/{project["author"]}__{project["repo"]}'
 
         print(f'Filtering for {project_id}...')
         filtered_project_directory = project_filter.filter_directory(raw_project_directory)
@@ -136,11 +139,11 @@ def process_project(i, project):
         project['files'] = [{'filename': filename, 'functions': functions}
                             for filename, functions in preprocessed_functions.items()]
 
-        if 'repoUrl' in project:
-            print(f'Remove project files for {project_id}...')
-            shutil.rmtree(raw_project_directory)
-    except KeyboardInterrupt:
-        quit(1)
+        # if 'repoUrl' in project:
+        #    print(f'Remove project files for {project_id}...')
+        #    shutil.rmtree(raw_project_directory)
+        #    except KeyboardInterrupt:
+        # quit(1)
     except Exception:
         print(f'Running pipeline for project {i} failed')
         traceback.print_exc()
@@ -153,7 +156,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--projects_file',
                     help='json file containing GitHub projects',
                     type=str,
-                    default='../resources/mypy-dependents-by-stars.json')
+                    default='resources/mypy-dependents-by-stars.json')
 parser.add_argument('--limit',
                     help='limit the number of projects for which the pipeline should run',
                     type=int,
@@ -165,11 +168,37 @@ parser.add_argument("--jobs",
 parser.add_argument("--output_dir",
                     help="output dir for the pipeline",
                     type=str,
-                    default=os.path.join('../output', str(int(time.time()))))
+                    default=os.path.join('./output'))
 parser.add_argument('--start',
                     help='start position within projects list',
                     type=int,
                     default=0)
+
+
+def remove_annotations(i, project):
+    try:
+        project_id = f'{project["author"]}/{project["repo"]}'
+        print(f'Creating unannotated copy for project {i} {project_id}')
+
+        raw_project_directory = f'/home/kuzyaka/Documents/projects/diploma/dltpy/tmp100/{project["author"]}__{project["repo"]}'
+
+        print(f'Filtering for {project_id}...')
+        filtered_project_directory = project_filter.filter_directory(raw_project_directory)
+
+        print(f'Extracting for {project_id}...')
+        for filename in list_files(filtered_project_directory):
+            new_file_text = strip_file_to_string(filename, no_ast=True)
+            with open(filename, 'w') as f:
+                f.write(new_file_text)
+    except Exception:
+        print(f'Removing annotations for project {i} failed')
+        traceback.print_exc()
+
+
+def get_copies_without_annotations(projects):
+    ParallelExecutor(n_jobs=args.jobs)(total=len(projects))(
+        delayed(remove_annotations)(i, project) for i, project in enumerate(projects, start=args.start))
+
 
 if __name__ == '__main__':
     # Parse args
@@ -181,10 +210,9 @@ if __name__ == '__main__':
         os.mkdir(OUTPUT_DIRECTORY)
 
     # Open projects file and run pipeline
-    with open(args.projects_file) as json_file:
-        projects = json.load(json_file)
 
-        if args.limit > 0:
-            projects = projects[:args.limit]
+    projects = [{"author": "tmp_author", "repo": "tmp_repo"}]
 
-        run_pipeline(projects)
+    # get_copies_without_annotations(projects)
+
+    run_pipeline(projects)

@@ -150,15 +150,22 @@ class ParameterDatapoint(Datapoint):
             'padding_2': 'padding'
         }
 
-    def __init__(self, name: str, comment: str, type: int):
+    def __init__(self, name: str, comment: str, type: int, lineno: int, file: str, full_name: str):
         self.name = name
         self.comment = comment
         self.type = type
+        self.lineno = lineno
+        self.file = file
+        self.full_name = full_name
 
     def datapoint_type_vector(self) -> np.ndarray:
         datapoint_type = np.zeros((1, config.W2V_VEC_LENGTH))
         datapoint_type[0][0] = 1
         return datapoint_type
+
+    def to_be_predicted_src(self) -> np.ndarray:
+        vector = np.array([self.file, str(self.lineno), self.full_name, "PARAMETER"])
+        return vector
 
 
 class ReturnDatapoint(Datapoint):
@@ -188,22 +195,29 @@ class ReturnDatapoint(Datapoint):
         }
 
     def __init__(self, name: str, function_comment: str, return_comment: str, return_expressions: list,
-                 parameter_names: list, type: int):
+                 parameter_names: list, type: int, lineno: int, file: str, full_name: str):
         self.name = name
         self.function_comment = function_comment
         self.return_comment = return_comment
         self.return_expressions = return_expressions
         self.parameter_names = parameter_names
         self.type = type
+        self.lineno = lineno
+        self.file = file
+        self.full_name = full_name
 
     def datapoint_type_vector(self) -> np.ndarray:
         datapoint_type = np.zeros((1, config.W2V_VEC_LENGTH))
         datapoint_type[0][1] = 1
         return datapoint_type
 
+    def to_be_predicted_src(self) -> np.ndarray:
+        vector = np.array([self.file, str(self.lineno), self.full_name, "FUNCTION"])
+        return vector
+
 
 def process_datapoints(filename: str, type: str, transformation: Callable[[Series], Datapoint]) -> \
-        Tuple[np.ndarray, np.ndarray]:
+        Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Read dataframe, generate vectors for each row, and write them as multidimensional array to disk
     """
@@ -218,7 +232,9 @@ def process_datapoints(filename: str, type: str, transformation: Callable[[Serie
     datapoints_result_y = np.stack(datapoints.apply(lambda x: x.to_be_predicted_to_vec()), axis=0)
     np.save(os.path.join(config.VECTOR_OUTPUT_DIRECTORY, type + '_datapoints_y'), datapoints_result_y)
 
-    return datapoints_result_x, datapoints_result_y
+    datapoints_result_y_src = np.stack(datapoints.apply(lambda x: x.to_be_predicted_src()), axis=0)
+    np.save(os.path.join(config.VECTOR_OUTPUT_DIRECTORY, type + '_datapoints_y_src'), datapoints_result_y_src)
+    return datapoints_result_x, datapoints_result_y, datapoints_result_y_src
 
 
 if __name__ == '__main__':
@@ -226,17 +242,17 @@ if __name__ == '__main__':
         os.mkdir(config.VECTOR_OUTPUT_DIRECTORY)
 
     # Process parameter datapoints
-    param_datapoints_result_x, param_datapoints_result_y = process_datapoints(
+    param_datapoints_result_x, param_datapoints_result_y, param_datapoints_result_y_src = process_datapoints(
         config.ML_PARAM_DF_PATH,
         'param',
-        lambda row: ParameterDatapoint(row.arg_name, row.arg_comment, row.arg_type_enc)
+        lambda row: ParameterDatapoint(row.arg_name, row.arg_comment, row.arg_type_enc, row.lineno, row.file, row.full_name)
     )
 
-    return_datapoints_result_x, return_datapoints_result_y = process_datapoints(
+    return_datapoints_result_x, return_datapoints_result_y, return_datapoints_result_y_src = process_datapoints(
         config.ML_RETURN_DF_PATH,
         'return',
         lambda row: ReturnDatapoint(row['name'], row.func_descr if row.func_descr is str else row.docstring,
-                                    row.return_descr, row.return_expr_str, row.arg_names_str, row.return_type_enc),
+                                    row.return_descr, row.return_expr_str, row.arg_names_str, row.return_type_enc, row.lineno, row.file, row.full_name),
     )
 
     assert param_datapoints_result_x.shape[1] == return_datapoints_result_x.shape[1], \

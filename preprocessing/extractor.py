@@ -12,7 +12,7 @@ class Function:
 
     def __init__(self, name: str, docstring: str, func_descr: Optional[str], arg_names: List[str], arg_types: List[str],
                  arg_descrs: Optional[List[str]], return_type: str, return_expr: List[str],
-                 return_descr: Optional[str]) -> None:
+                 return_descr: Optional[str], lineno: int, full_name: str, arg_full_names: List[str]) -> None:
         self.name = name
         self.docstring = docstring
         self.func_descr = func_descr
@@ -22,6 +22,9 @@ class Function:
         self.return_type = return_type
         self.return_expr = return_expr
         self.return_descr = return_descr
+        self.lineno = lineno
+        self.full_name = full_name
+        self.arg_full_names = arg_full_names
 
     def __eq__(self, other) -> bool:
         if isinstance(other, Function):
@@ -103,9 +106,14 @@ class Extractor():
     def extract_fn(self, node: ast_fn_def, return_exprs: List[ast.Return]) \
             -> Function:
         function_name: str = self.extract_name(node)
+        function_lineno: int = node.lineno
         docstring: str = self.extract_docstring(node)
         (arg_names, arg_types) = self.extract_args(node)
         return_type: str = self.extract_return_type(node)
+
+        # if function_lineno == 4760:
+        #     print("==========================" + function_name + " " + return_type)
+
         exprs: List[str] = [self.pretty_print(re) for re in return_exprs]
 
         docstring_descr: Dict[
@@ -118,7 +126,7 @@ class Extractor():
 
         f: Function = Function(function_name, docstring, docstring_descr["function_descr"],
                                arg_names, arg_types, arg_descrs,
-                               return_type, exprs, docstring_descr["return_descr"])
+                               return_type, exprs, docstring_descr["return_descr"], function_lineno, function_name, arg_names)
         return f
 
     def extract_name(self, node: ast_fn_def) -> str:

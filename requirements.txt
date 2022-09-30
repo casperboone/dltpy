@@ -4,7 +4,7 @@ astor==0.8.0
 pandas>=0.25.1
 gitpython
 docstring-parser==0.3
-joblib==0.13.2
+joblib==1.2.0
 tqdm==4.31.1
 gensim==3.8.0
 torch
